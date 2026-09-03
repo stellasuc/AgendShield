@@ -76,6 +76,15 @@ class AgentPlan:
     model: str
 
 
+@dataclass(frozen=True, slots=True)
+class ModelConnectionCheck:
+    """A successful, payload-minimized result from an online model probe."""
+
+    provider: str
+    model: str
+    protocol: str
+
+
 _SYSTEM_PROMPT = """You are the planner for a fixed-scope enterprise customer-service
 agent. The agent can only choose one route: `external_email` to prepare a customer
 service response requiring controlled external delivery, or `safe_aggregate` to use
@@ -106,6 +115,19 @@ def plan_customer_data_task(prompt: str, config: ModelConfig) -> AgentPlan:
     )
 
 
+def verify_model_connection(config: ModelConfig) -> ModelConnectionCheck:
+    """Send a minimal request to verify the current BYOK connection settings."""
+    if config.protocol == "anthropic":
+        _test_anthropic_connection(config)
+    else:
+        _test_openai_connection(config)
+    return ModelConnectionCheck(
+        provider=config.provider_id,
+        model=config.model,
+        protocol=config.protocol,
+    )
+
+
 def _plan_content(prompt: str, config: ModelConfig) -> str:
     if config.protocol == "anthropic":
         return _plan_with_anthropic(prompt, config)
@@ -115,7 +137,7 @@ def _plan_content(prompt: str, config: ModelConfig) -> str:
 def _plan_with_openai(prompt: str, config: ModelConfig) -> str:
     body = {
         "model": config.model,
-        "temperature": 0,
+        "temperature": 0.1,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -152,7 +174,7 @@ def _plan_with_anthropic(prompt: str, config: ModelConfig) -> str:
     body = {
         "model": config.model,
         "max_tokens": 500,
-        "temperature": 0,
+        "temperature": 0.1,
         "system": _SYSTEM_PROMPT,
         "messages": [{"role": "user", "content": f"<task>{prompt}</task>"}],
     }
@@ -180,3 +202,68 @@ def _plan_with_anthropic(prompt: str, config: ModelConfig) -> str:
         return str(payload["content"][0]["text"])
     except (KeyError, IndexError, TypeError) as exc:
         raise ModelPlanningError("模型未返回可验证的 JSON 行动计划") from exc
+
+
+def _test_openai_connection(config: ModelConfig) -> None:
+    request = Request(
+        config.base_url.rstrip("/") + "/chat/completions",
+        data=json.dumps(
+            {
+                "model": config.model,
+                "temperature": 0.1,
+                "max_tokens": 8,
+                "messages": [{"role": "user", "content": "Reply with OK."}],
+            }
+        ).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=15) as response:  # noqa: S310 - user-configured API endpoint
+            payload: dict[str, Any] = json.loads(response.read())
+    except HTTPError as exc:
+        raise ModelPlanningError(f"模型服务返回 HTTP {exc.code}") from exc
+    except URLError as exc:
+        raise ModelPlanningError("无法连接模型服务") from exc
+    except TimeoutError as exc:
+        raise ModelPlanningError("模型服务响应超时") from exc
+    try:
+        str(payload["choices"][0]["message"]["content"])
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ModelPlanningError("模型服务未返回有效测试响应") from exc
+
+
+def _test_anthropic_connection(config: ModelConfig) -> None:
+    request = Request(
+        config.base_url.rstrip("/") + "/messages",
+        data=json.dumps(
+            {
+                "model": config.model,
+                "max_tokens": 8,
+                "temperature": 0.1,
+                "messages": [{"role": "user", "content": "Reply with OK."}],
+            }
+        ).encode("utf-8"),
+        headers={
+            "x-api-key": config.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=15) as response:  # noqa: S310 - user-configured API endpoint
+            payload: dict[str, Any] = json.loads(response.read())
+    except HTTPError as exc:
+        raise ModelPlanningError(f"模型服务返回 HTTP {exc.code}") from exc
+    except URLError as exc:
+        raise ModelPlanningError("无法连接模型服务") from exc
+    except TimeoutError as exc:
+        raise ModelPlanningError("模型服务响应超时") from exc
+    try:
+        str(payload["content"][0]["text"])
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ModelPlanningError("模型服务未返回有效测试响应") from exc

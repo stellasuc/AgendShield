@@ -7,7 +7,12 @@ import time
 
 import streamlit as st
 
-from agentshield.planning import MODEL_PROVIDERS, ModelConfig, model_provider
+from agentshield.planning import (
+    MODEL_PROVIDERS,
+    ModelConfig,
+    model_provider,
+    verify_model_connection,
+)
 from dashboard.components.audit_view import render_audit, render_effects
 from dashboard.components.decision_view import render_decision
 from dashboard.components.lineage_view import render_lineage
@@ -125,6 +130,7 @@ def _rule_dialog(inspection) -> None:
 
 
 def _model_config() -> ModelConfig | None:
+    config: ModelConfig | None = None
     with st.expander("第 2 步：配置在线模型连接（必填）", expanded=True):
         st.caption("安全执行前，在线模型会根据你的任务 Prompt 生成受限行动计划。未配置 API Key 时不能执行任务。支持主流模型服务商与自定义兼容端点。")
         provider_id = st.selectbox(
@@ -148,25 +154,32 @@ def _model_config() -> ModelConfig | None:
             st.markdown(f"[查看 {provider.label} 官方配置说明]({provider.documentation_url})")
         st.caption("Key 仅保留在当前浏览器会话中，不写入文件、数据库或审计日志。")
         st.caption("点击“安全执行”后，任务 Prompt 与受限能力说明将发送至该端点；模型输出的计划会再由 AgentShield 依据法规逐项核验。")
+        if api_key and model.strip():
+            try:
+                config = ModelConfig(
+                    api_key=api_key,
+                    model=model,
+                    base_url=endpoint,
+                    provider_id=provider.provider_id,
+                    protocol=provider.protocol,
+                )
+            except ValueError as exc:
+                st.error(f"模型连接配置无效：{exc}")
+        if st.button("测试 API 连接", width="content", disabled=config is None):
+            try:
+                with st.spinner("正在发送最小测试请求…"):
+                    verified = verify_model_connection(config)
+                st.success(f"连接成功：{verified.model} 可通过当前 API 配置访问。")
+            except Exception as exc:
+                st.error(f"连接测试失败：{type(exc).__name__}: {exc}")
+        st.caption("测试只发送一条“Reply with OK.”的最小请求，不执行 Agent 任务；模型服务可能收取少量调用费用。")
         if st.button(
             "清除当前会话的 API Key",
             width="content",
             on_click=lambda: st.session_state.pop("model_api_key", None),
         ):
             st.rerun()
-    if not api_key or not model.strip():
-        return None
-    try:
-        return ModelConfig(
-            api_key=api_key,
-            model=model,
-            base_url=endpoint,
-            provider_id=provider.provider_id,
-            protocol=provider.protocol,
-        )
-    except ValueError as exc:
-        st.error(f"模型连接配置无效：{exc}")
-        return None
+    return config
 
 
 def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:

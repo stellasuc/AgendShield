@@ -9,6 +9,7 @@ from agentshield.planning import (
     ModelPlanningError,
     model_provider,
     plan_customer_data_task,
+    verify_model_connection,
 )
 
 
@@ -122,3 +123,53 @@ def test_anthropic_planner_uses_messages_api_and_native_headers(monkeypatch):
     assert captured["api_key"] == "test-key"
     assert captured["version"] == "2023-06-01"
     assert captured["body"]["system"]
+
+
+def test_model_connection_uses_a_minimal_openai_compatible_request(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        captured["body"] = json.loads(request.data)
+        return _Response({"choices": [{"message": {"content": "OK"}}]})
+
+    monkeypatch.setattr("agentshield.planning.urlopen", fake_urlopen)
+    result = verify_model_connection(
+        ModelConfig(
+            api_key="test-key",
+            model="MiniMax-M2.7",
+            base_url="https://api.minimax.io/v1",
+            provider_id="minimax",
+        )
+    )
+
+    assert result.provider == "minimax"
+    assert captured["url"] == "https://api.minimax.io/v1/chat/completions"
+    assert captured["timeout"] == 15
+    assert captured["body"]["max_tokens"] == 8
+    assert captured["body"]["messages"] == [{"role": "user", "content": "Reply with OK."}]
+
+
+def test_model_connection_uses_anthropic_messages_api(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["api_key"] = request.get_header("X-api-key")
+        return _Response({"content": [{"type": "text", "text": "OK"}]})
+
+    monkeypatch.setattr("agentshield.planning.urlopen", fake_urlopen)
+    result = verify_model_connection(
+        ModelConfig(
+            api_key="test-key",
+            model="claude-test",
+            base_url="https://api.anthropic.example/v1",
+            provider_id="anthropic",
+            protocol="anthropic",
+        )
+    )
+
+    assert result.protocol == "anthropic"
+    assert captured["url"] == "https://api.anthropic.example/v1/messages"
+    assert captured["api_key"] == "test-key"
