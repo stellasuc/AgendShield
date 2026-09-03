@@ -1,0 +1,10 @@
+cases:
+  - id: sensitive_external_missing_consent
+    expected: REQUIRE_CONSENT
+  - id: matching_separate_consent
+    expected: ALLOW
+  - id: wrong_object_consent
+    expected: REQUIRE_CONSENT
+  - id: unbounded_sensitive_memory
+    expected: BLOCK
+

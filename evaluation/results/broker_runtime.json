@@ -1,0 +1,44 @@
+{
+  "broker_email_effects_including_warmup": 105,
+  "brokered_safe_latency_ms": {
+    "mean": 14.531114,
+    "median": 14.449521,
+    "p95": 15.350542
+  },
+  "components_ms": {
+    "audit_persistence_ms": {
+      "mean": 0.748956,
+      "median": 0.729104,
+      "p95": 0.897957
+    },
+    "idempotency_lookup_ms": {
+      "mean": 0.155808,
+      "median": 0.150375,
+      "p95": 0.193417
+    },
+    "policy_verification_ms": {
+      "mean": 0.393274,
+      "median": 0.381521,
+      "p95": 0.477708
+    },
+    "sqlite_persistence_ms": {
+      "mean": 1.605186,
+      "median": 1.573478,
+      "p95": 1.838167
+    }
+  },
+  "direct_mock_latency_ms": {
+    "mean": 0.00218,
+    "median": 0.002083,
+    "p95": 0.00325
+  },
+  "measured_runs": 100,
+  "mode": "local_loopback_http_sqlite_mock",
+  "note": "Local mock microbenchmark, not production performance.",
+  "total_added_latency_ms": {
+    "mean": 14.528934,
+    "median": 14.447604,
+    "p95": 15.347958
+  },
+  "warmup_runs": 5
+}

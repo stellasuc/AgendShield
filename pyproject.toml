@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentshield-runtime"
+version = "0.1.0"
+description = "A policy-aware runtime compliance harness for LLM agents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "AgentShield contributors"}]
+dependencies = ["PyYAML>=6.0,<7", "langgraph==1.2.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<9", "pytest-cov>=5.0,<7"]
+dashboard = ["streamlit>=1.40,<2", "graphviz>=0.20,<1"]
+
+[project.scripts]
+agentshield-synthetic-demo = "examples.synthetic_demo:main"
+agentshield = "agentshield.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.data-files]
+"regulations/gdpr" = ["regulations/gdpr/*.yaml"]
+"regulations/gdpr/tests" = ["regulations/gdpr/tests/*.yaml"]
+"regulations/pipl" = ["regulations/pipl/*.yaml"]
+"regulations/pipl/tests" = ["regulations/pipl/tests/*.yaml"]
+
+[tool.setuptools.packages.find]
+include = ["agentshield*", "dashboard*", "examples*", "evaluation*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]

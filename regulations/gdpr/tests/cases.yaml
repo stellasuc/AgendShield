@@ -1,0 +1,10 @@
+cases:
+  - id: aggregate_statistics
+    expected: ALLOW
+  - id: raw_external_transfer
+    expected: REPAIR
+  - id: missing_lawful_basis
+    expected: REQUIRE_APPROVAL
+  - id: unbounded_memory
+    expected: BLOCK
+

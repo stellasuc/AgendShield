@@ -1,0 +1,13 @@
+{
+  "automated_tests": 107,
+  "broker_security_tests": 20,
+  "benchmark_result": "evaluation/results/broker_runtime.json",
+  "benchmark_measured_runs": 100,
+  "benchmark_warmup_runs": 5,
+  "brokered_safe_latency_mean_ms": 14.531114,
+  "brokered_safe_latency_median_ms": 14.449521,
+  "brokered_safe_latency_p95_ms": 15.350542,
+  "added_latency_mean_ms": 14.528934,
+  "environment": "local_loopback_http_sqlite_mock",
+  "disclaimer": "Local deterministic mock validation; not a production performance claim."
+}

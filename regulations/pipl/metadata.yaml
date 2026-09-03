@@ -1,0 +1,13 @@
+id: PIPL
+name: Personal Information Protection Law of the People's Republic of China
+jurisdiction: People's Republic of China
+version: Presidential Order No. 91 / NPCSC adopted text
+effective_date: "2021-11-01"
+official_sources:
+  - name: National People's Congress legal database
+    url: "https://flk.npc.gov.cn/detail?fileId=&id=ff8081817b6472a3017b656cc2040044&title=%E4%B8%AD%E5%8D%8E%E4%BA%BA%E6%B0%91%E5%85%B1%E5%92%8C%E5%9B%BD%E4%B8%AA%E4%BA%BA%E4%BF%A1%E6%81%AF%E4%BF%9D%E6%8A%A4%E6%B3%95&type="
+  - name: Official text republished by the Cyberspace Administration of China
+    url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+description: >-
+  Human-curated package containing selected runtime-assistive technical
+  controls. It does not represent complete PIPL coverage.

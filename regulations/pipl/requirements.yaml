@@ -1,0 +1,126 @@
+requirements:
+  - requirement_id: PIPL_PROCESSING_BASIS
+    normalized_concept: LAWFUL_BASIS
+    source:
+      regulation: PIPL
+      article: "Article 13"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      A personal information handler may process personal information only under
+      one of the circumstances listed in Article 13; consent is one circumstance,
+      and another listed circumstance may make consent unnecessary.
+    engineering_interpretation: >-
+      Effects involving personal information require trusted confirmation that a
+      listed processing circumstance has been reviewed. Runtime does not select it.
+    runtime_enforcement: Require human approval when processing-basis confirmation is absent.
+    lifecycle_stages: [TOOL_CALL, EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [data_object.contains_personal_data, event.has_lawful_basis, event.purpose]
+
+  - requirement_id: PIPL_PURPOSE_AND_MINIMUM_NECESSARY
+    normalized_concept: PURPOSE_AND_MINIMIZATION
+    source:
+      regulation: PIPL
+      article: "Article 6"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Processing should have a clear and reasonable purpose, be directly related to
+      that purpose, minimize impact on individual rights and interests, and collection
+      should remain within the minimum scope necessary to achieve the purpose.
+    engineering_interpretation: >-
+      Compare declared purpose and source purpose, and replace unnecessary raw
+      records with an independently classified aggregate or redacted derivative.
+    runtime_enforcement: Replan incompatible-purpose effects and repair excessive raw transfer.
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [event.purpose, event.purpose_compatible, event.is_minimized, data_object.contains_personal_data, data_object.categories, data_lineage]
+
+  - requirement_id: PIPL_RETENTION
+    normalized_concept: STORAGE_LIMITATION
+    source:
+      regulation: PIPL
+      article: "Article 19"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Unless laws or administrative regulations provide otherwise, the retention
+      period should be the shortest period necessary to achieve the processing purpose.
+    engineering_interpretation: >-
+      Persistent memory or log writes require bounded retention metadata; AgentShield
+      does not calculate the legally correct period or exceptions.
+    runtime_enforcement: Prevent persistent writes with absent or unbounded retention metadata.
+    lifecycle_stages: [MEMORY_WRITE, LOG_WRITE]
+    required_state: [data_object.contains_personal_data, event.retention_bounded, event.purpose]
+
+  - requirement_id: PIPL_PROVISION_TO_HANDLER
+    normalized_concept: THIRD_PARTY_PROVISION
+    source:
+      regulation: PIPL
+      article: "Article 23"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Providing handled personal information to another handler requires specified
+      notice to the individual and separate consent, and constrains the recipient to
+      the notified purpose, method, and categories.
+    engineering_interpretation: >-
+      An event identified by the integration as provision to another handler must
+      have recipient-notice metadata and separate consent scoped to object, purpose,
+      recipient, and operation.
+    runtime_enforcement: Require scoped separate consent before external provision.
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    required_state: [event.recipient, event.recipient_type, event.recipient_notified, authorization.separate_consent, data_object.contains_personal_data]
+
+  - requirement_id: PIPL_SENSITIVE_PROCESSING
+    normalized_concept: SENSITIVE_PERSONAL_INFORMATION
+    source:
+      regulation: PIPL
+      article: "Article 28"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Sensitive personal information includes information that can readily cause
+      specified harms if leaked or illegally used, with listed examples; processing
+      requires a specific purpose, sufficient necessity, and strict protective measures.
+    engineering_interpretation: >-
+      Generic sensitive detector output becomes a PIPL sensitive-information candidate.
+      Purpose, necessity, and protective-measure claims require trusted confirmation.
+    runtime_enforcement: Require human approval when any required confirmation is absent.
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [data_object.attributes.pipl_sensitive_candidate, event.specific_purpose, event.strictly_necessary, event.protective_measures_confirmed]
+
+  - requirement_id: PIPL_SENSITIVE_SEPARATE_CONSENT
+    normalized_concept: SENSITIVE_SEPARATE_CONSENT
+    source:
+      regulation: PIPL
+      article: "Article 29"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Processing sensitive personal information requires separate consent; where
+      laws or administrative regulations require written consent, those provisions apply.
+    engineering_interpretation: >-
+      Require separate-consent evidence scoped to the candidate object, purpose,
+      recipient, and operation. Runtime does not determine written-form requirements.
+    runtime_enforcement: Pause for matching separate consent.
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [data_object.attributes.pipl_sensitive_candidate, authorization.separate_consent]
+
+  - requirement_id: PIPL_CROSS_BORDER
+    normalized_concept: CROSS_BORDER_PROVISION
+    source:
+      regulation: PIPL
+      article: "Articles 38-39"
+      official_source: National People's Congress / CAC official text
+      official_url: "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    legal_requirement_summary: >-
+      Cross-border provision requires one of the Article 38 routes or conditions and
+      protective measures; Article 39 requires specified notice and separate consent.
+    engineering_interpretation: >-
+      Require externally validated transfer-mechanism, notice, and scoped separate
+      consent metadata. AgentShield cannot validate assessments, certifications,
+      standard contracts, thresholds, or other legal routes.
+    runtime_enforcement: Require approval for missing mechanism confirmation and consent for missing separate consent.
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    required_state: [event.cross_border, event.cross_border_mechanism_confirmed, event.recipient_notified, authorization.separate_consent]
+

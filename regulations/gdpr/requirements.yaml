@@ -1,0 +1,106 @@
+requirements:
+  - requirement_id: GDPR_LAWFUL_BASIS
+    normalized_concept: LAWFUL_BASIS
+    source:
+      regulation: GDPR
+      article: "Article 6(1)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Processing is lawful only when and to the extent that at least one of the
+      bases listed in Article 6(1) applies; consent is one listed basis, not the only one.
+    engineering_interpretation: >-
+      A side-effect involving personal data must carry a trusted confirmation that
+      an applicable lawful basis has been reviewed. AgentShield does not select or
+      validate that legal basis.
+    runtime_enforcement: Require human approval when lawful-basis confirmation is absent.
+    lifecycle_stages: [TOOL_CALL, EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [data_object.contains_personal_data, event.has_lawful_basis, event.purpose]
+
+  - requirement_id: GDPR_PURPOSE_LIMITATION
+    normalized_concept: PURPOSE_LIMITATION
+    source:
+      regulation: GDPR
+      article: "Article 5(1)(b)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Personal data are collected for specified, explicit and legitimate purposes
+      and are not further processed incompatibly with those purposes, subject to
+      the qualifications in the Regulation.
+    engineering_interpretation: >-
+      Compare the declared event purpose with the source object's recorded purpose.
+      A trusted integration supplies the compatibility determination.
+    runtime_enforcement: Replan when an effect is explicitly marked purpose-incompatible.
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [event.purpose, event.purpose_compatible, data_object.purpose, data_lineage]
+
+  - requirement_id: GDPR_DATA_MINIMIZATION
+    normalized_concept: DATA_MINIMIZATION
+    source:
+      regulation: GDPR
+      article: "Articles 5(1)(c) and 25(1)-(2)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Personal data should be adequate, relevant and limited to what is necessary
+      for the processing purposes; by-default measures should limit the amount,
+      extent, storage and accessibility of personal data for each specific purpose.
+    engineering_interpretation: >-
+      For a statistics purpose, transfer a verified aggregate rather than raw rows
+      containing direct identifiers when the raw fields are unnecessary.
+    runtime_enforcement: Aggregate or redact excessive raw personal data and re-verify the derived object.
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    required_state: [event.purpose, event.recipient_type, event.is_minimized, data_object.contains_personal_data, data_object.categories, data_object.transformations]
+
+  - requirement_id: GDPR_SPECIAL_CATEGORIES
+    normalized_concept: SPECIAL_CATEGORY_PROCESSING
+    source:
+      regulation: GDPR
+      article: "Article 9(1)-(2)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Article 9(1) generally prohibits processing listed special categories and
+      Article 9(2) lists conditions under which that prohibition does not apply.
+    engineering_interpretation: >-
+      Health or qualifying biometric detector output is only a special-category
+      candidate. Require externally confirmed Article 9 condition metadata.
+    runtime_enforcement: Require human approval when a special-category condition is not confirmed.
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    required_state: [data_object.attributes.gdpr_special_category_candidate, event.special_category_condition_confirmed]
+
+  - requirement_id: GDPR_STORAGE_LIMITATION
+    normalized_concept: STORAGE_LIMITATION
+    source:
+      regulation: GDPR
+      article: "Article 5(1)(e)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Identifiable personal data should not be kept longer than necessary for the
+      processing purposes, subject to specified exceptions and safeguards.
+    engineering_interpretation: >-
+      Persistent memory or log writes containing personal data require bounded
+      retention metadata. AgentShield does not calculate the legally correct period.
+    runtime_enforcement: Prevent persistent writes with absent or explicitly unbounded retention.
+    lifecycle_stages: [MEMORY_WRITE, LOG_WRITE]
+    required_state: [data_object.contains_personal_data, event.retention_bounded, event.purpose]
+
+  - requirement_id: GDPR_RECIPIENT_TRANSPARENCY
+    normalized_concept: RECIPIENT_TRANSPARENCY
+    source:
+      regulation: GDPR
+      article: "Articles 13(1)(e) and 14(1)(e)"
+      official_source: EUR-Lex official text
+      official_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    legal_requirement_summary: >-
+      Required information includes the recipients or categories of recipients,
+      where applicable, under the respective Article 13 or Article 14 context.
+    engineering_interpretation: >-
+      External disclosure events must identify a recipient and carry trusted
+      recipient-transparency metadata; exceptions remain a human/legal determination.
+    runtime_enforcement: Require approval when recipient transparency metadata is absent.
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    required_state: [event.recipient, event.recipient_disclosed, data_object.contains_personal_data]
+

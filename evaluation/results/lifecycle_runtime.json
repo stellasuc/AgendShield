@@ -1,0 +1,89 @@
+{
+  "event_driven_comparison": {
+    "event_driven": {
+      "detector_calls": 400,
+      "detector_calls_mean_per_run": 4.0,
+      "events": 700,
+      "events_mean_per_run": 7.0,
+      "events_skipped": 600,
+      "events_skipped_mean_per_run": 6.0,
+      "latency_ms": {"mean": 5.818976, "median": 5.132208, "p95": 9.152792},
+      "repair_attempts": 0,
+      "repair_attempts_mean_per_run": 0.0,
+      "rule_evaluation_latency_ms_total": 6.989395,
+      "rules_evaluated": 300,
+      "rules_evaluated_mean_per_run": 3.0,
+      "verification_triggers": 100,
+      "verification_triggers_mean_per_run": 1.0
+    },
+    "every_event": {
+      "detector_calls": 400,
+      "detector_calls_mean_per_run": 4.0,
+      "events": 700,
+      "events_mean_per_run": 7.0,
+      "events_skipped": 0,
+      "events_skipped_mean_per_run": 0.0,
+      "latency_ms": {"mean": 5.767438, "median": 5.302938, "p95": 8.190625},
+      "repair_attempts": 0,
+      "repair_attempts_mean_per_run": 0.0,
+      "rule_evaluation_latency_ms_total": 21.182962,
+      "rules_evaluated": 4200,
+      "rules_evaluated_mean_per_run": 42.0,
+      "verification_triggers": 700,
+      "verification_triggers_mean_per_run": 7.0
+    },
+    "rules_evaluated_reduction": 3900,
+    "verification_trigger_reduction": 600
+  },
+  "llm_calls": 0,
+  "mode": "deterministic_local_langgraph",
+  "repetitions": 100,
+  "safe_task": {
+    "agentshield_overhead_ms": {"mean": 5.218645, "median": 4.65927, "p95": 7.901916},
+    "baseline_total_latency_ms": {"mean": 0.830189, "median": 0.761854, "p95": 1.283958},
+    "components_total_ms": {
+      "audit_latency_ms": 185.919229,
+      "detector_latency_ms": 21.009745,
+      "rule_evaluation_latency_ms": 7.842795,
+      "state_update_latency_ms": 84.365485
+    },
+    "detector_calls": 400,
+    "detector_calls_mean_per_run": 4.0,
+    "events": 700,
+    "events_mean_per_run": 7.0,
+    "events_skipped": 600,
+    "events_skipped_mean_per_run": 6.0,
+    "repair_attempts": 0,
+    "repair_attempts_mean_per_run": 0.0,
+    "rules_evaluated": 300,
+    "rules_evaluated_mean_per_run": 3.0,
+    "shielded_total_latency_ms": {"mean": 6.048833, "median": 5.411833, "p95": 8.578541},
+    "verification_triggers": 100,
+    "verification_triggers_mean_per_run": 1.0
+  },
+  "unsafe_task": {
+    "agentshield_overhead_ms": {"mean": 5.666944, "median": 5.102146, "p95": 8.796042},
+    "baseline_total_latency_ms": {"mean": 0.84347, "median": 0.755437, "p95": 1.565583},
+    "components_total_ms": {
+      "audit_latency_ms": 181.535786,
+      "detector_latency_ms": 22.847963,
+      "rule_evaluation_latency_ms": 15.055088,
+      "state_update_latency_ms": 105.342213
+    },
+    "detector_calls": 400,
+    "detector_calls_mean_per_run": 4.0,
+    "events": 800,
+    "events_mean_per_run": 8.0,
+    "events_skipped": 500,
+    "events_skipped_mean_per_run": 5.0,
+    "repair_attempts": 100,
+    "repair_attempts_mean_per_run": 1.0,
+    "repair_attempts_total": 100,
+    "repair_path_overhead_ms_mean": 5.666944,
+    "rules_evaluated": 1300,
+    "rules_evaluated_mean_per_run": 13.0,
+    "shielded_total_latency_ms": {"mean": 6.510414, "median": 5.894249, "p95": 9.76},
+    "verification_triggers": 300,
+    "verification_triggers_mean_per_run": 3.0
+  }
+}

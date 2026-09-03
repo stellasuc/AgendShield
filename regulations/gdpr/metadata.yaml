@@ -1,0 +1,11 @@
+id: GDPR
+name: General Data Protection Regulation (Regulation (EU) 2016/679)
+jurisdiction: European Union / European Economic Area
+version: CELEX 32016R0679
+effective_date: "2018-05-25"
+official_sources:
+  - name: EUR-Lex official text
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+description: >-
+  Human-curated package containing selected runtime-assistive technical
+  controls. It does not represent complete GDPR coverage.

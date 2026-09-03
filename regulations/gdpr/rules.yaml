@@ -1,0 +1,81 @@
+rules:
+  - rule_id: GDPR_LAWFUL_BASIS_001
+    regulation_sources: [{requirement_id: GDPR_LAWFUL_BASIS}]
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    dependencies: [object.contains_personal_data, event.has_lawful_basis]
+    predicate: {type: deterministic, handler: require_validated_lawful_basis}
+    applicability:
+      - {variable: object.contains_personal_data, operator: EQ, value: true}
+    requirements:
+      - {variable: event.has_lawful_basis, operator: EQ, value: true}
+    severity: HIGH
+    interventions: [REQUIRE_APPROVAL]
+    description: Engineering control requiring validated lawful-basis metadata.
+
+  - rule_id: GDPR_PURPOSE_LIMITATION_001
+    regulation_sources: [{requirement_id: GDPR_PURPOSE_LIMITATION}]
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    dependencies: [object.contains_personal_data, event.purpose_compatible]
+    predicate: {type: deterministic, handler: require_compatible_declared_purpose}
+    applicability:
+      - {variable: object.contains_personal_data, operator: EQ, value: true}
+    requirements:
+      - {variable: event.purpose_compatible, operator: EQ, value: true}
+    severity: HIGH
+    interventions: [REPLAN, BLOCK]
+    description: Engineering control for explicitly declared purpose compatibility.
+
+  - rule_id: GDPR_DATA_MINIMIZATION_001
+    regulation_sources: [{requirement_id: GDPR_DATA_MINIMIZATION}]
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    dependencies: [object.contains_personal_data, event.recipient_type, event.is_minimized]
+    predicate: {type: deterministic, handler: excessive_personal_data_for_declared_purpose}
+    applicability:
+      - {variable: object.contains_personal_data, operator: EQ, value: true}
+      - {variable: event.recipient_type, operator: EQ, value: external}
+    requirements:
+      - {variable: event.is_minimized, operator: EQ, value: true}
+    severity: HIGH
+    interventions: [AGGREGATE, REDACT, BLOCK]
+    repair_strategy: AGGREGATE
+    description: Aggregate or redact unnecessary raw personal data before external transfer.
+
+  - rule_id: GDPR_SPECIAL_CATEGORIES_001
+    regulation_sources: [{requirement_id: GDPR_SPECIAL_CATEGORIES}]
+    lifecycle_stages: [EXTERNAL_TRANSFER, RESPONSE_GENERATED, MEMORY_WRITE]
+    dependencies: [object.attributes.gdpr_special_category_candidate, event.special_category_condition_confirmed]
+    predicate: {type: deterministic, handler: require_special_category_condition}
+    applicability:
+      - {variable: object.attributes.gdpr_special_category_candidate, operator: EQ, value: true}
+    requirements:
+      - {variable: event.special_category_condition_confirmed, operator: EQ, value: true}
+    severity: CRITICAL
+    interventions: [REQUIRE_APPROVAL, BLOCK]
+    description: Require external confirmation of an Article 9 condition for candidate data.
+
+  - rule_id: GDPR_STORAGE_LIMITATION_001
+    regulation_sources: [{requirement_id: GDPR_STORAGE_LIMITATION}]
+    lifecycle_stages: [MEMORY_WRITE, LOG_WRITE]
+    dependencies: [object.contains_personal_data, event.retention_bounded]
+    predicate: {type: deterministic, handler: require_bounded_retention}
+    applicability:
+      - {variable: object.contains_personal_data, operator: EQ, value: true}
+    requirements:
+      - {variable: event.retention_bounded, operator: EQ, value: true}
+    severity: HIGH
+    interventions: [PREVENT_MEMORY_WRITE, BLOCK]
+    description: Prevent persistent storage without bounded retention metadata.
+
+  - rule_id: GDPR_RECIPIENT_TRANSPARENCY_001
+    regulation_sources: [{requirement_id: GDPR_RECIPIENT_TRANSPARENCY}]
+    lifecycle_stages: [EXTERNAL_TRANSFER]
+    dependencies: [object.contains_personal_data, event.recipient_disclosed]
+    predicate: {type: deterministic, handler: require_recipient_transparency_metadata}
+    applicability:
+      - {variable: object.contains_personal_data, operator: EQ, value: true}
+    requirements:
+      - {variable: event.recipient_disclosed, operator: EQ, value: true}
+    severity: HIGH
+    interventions: [REQUIRE_APPROVAL]
+    description: Require trusted recipient-transparency metadata before disclosure.
+
