@@ -19,13 +19,12 @@ STATUS_COLORS = {
 def render_timeline(snapshot: SecuritySnapshot) -> None:
     import streamlit as st
 
-    st.markdown("## Lifecycle / Security Timeline")
+    st.markdown("#### 任务处理时间线")
     st.caption(
-        "Structured from the persisted AgentShield audit stream; payload fields "
-        "remain fingerprinted."
+        "来自已持久化的运行时审计记录；敏感载荷仅保留指纹，不展示原文。"
     )
     if not snapshot.events:
-        st.info("No runtime events are available for this run.")
+        st.info("本次运行没有可展示的事件。")
         return
     blocks = []
     for event in snapshot.events:

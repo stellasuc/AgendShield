@@ -9,7 +9,12 @@ import pytest
 from agentshield.cli import main
 from agentshield.dashboard_launcher import launch_dashboard
 from agentshield.observability import SecurityTimeline
-from dashboard.demo_loader import resolve_pipl_approval, run_demo
+from dashboard.demo_loader import (
+    inspect_policy,
+    prepare_policy,
+    resolve_pipl_approval,
+    run_demo,
+)
 from examples.portfolio.demo import run_gdpr_broker, run_idempotency
 
 
@@ -113,3 +118,22 @@ def test_dashboard_demos_use_fresh_isolated_databases():
     finally:
         first.close()
         second.close()
+
+
+def test_policy_preview_loads_and_compiles_selected_regulation():
+    preview = prepare_policy(("GDPR",))
+
+    assert preview.regulations == ("GDPR",)
+    assert preview.requirements > 0
+    assert preview.executable_rules > 0
+
+
+def test_policy_inspection_keeps_requirement_and_rule_sources():
+    inspection = inspect_policy(("PIPL",))
+
+    assert inspection.requirements
+    assert inspection.rules
+    assert all(item.source_url.startswith("https://") for item in inspection.requirements)
+    assert all(item.source_urls for item in inspection.rules)
+    assert all(rule.formal_logic.startswith("ALWAYS(") for rule in inspection.rules)
+    assert all(rule.predicates for rule in inspection.rules)

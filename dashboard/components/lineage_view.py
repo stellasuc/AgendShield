@@ -7,9 +7,9 @@ def render_lineage(snapshot: SecuritySnapshot) -> None:
     import graphviz
     import streamlit as st
 
-    st.markdown("## Data Lineage")
+    st.markdown("#### 数据如何流转")
     if not snapshot.data_objects and not snapshot.lineage:
-        st.info("No lineage is available for this run.")
+        st.info("本次运行没有可展示的数据流转。")
         return
     graph = graphviz.Digraph()
     graph.attr(rankdir="LR", bgcolor="transparent", pad="0.2")
@@ -41,6 +41,5 @@ def render_lineage(snapshot: SecuritySnapshot) -> None:
         graph.edge(edge.source, edge.target, label=edge.transformation)
     st.graphviz_chart(graph, width="stretch")
     st.caption(
-        "Nodes show object identity and classification. Edges come from actual "
-        "repair transactions and successful effect destinations."
+        "节点代表数据对象与分类；连线来自实际修复记录和已成功执行的效果目标。"
     )

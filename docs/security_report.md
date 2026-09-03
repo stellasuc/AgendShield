@@ -21,7 +21,7 @@ The implementation reuses the existing LangGraph adapter, lineage model, policy 
 | GDPR broker demo | separate PID, no agent backend handle, aggregate 1, raw PII 0 |
 | PIPL approval demo | waiting state survives restart; email 0 before and 1 after |
 | Idempotency demo | second request after restart replays; count remains 1 |
-| Security tests | 20 focused broker tests; 107 full-suite tests passing |
+| Security tests | 20 focused broker tests; 111 full-suite tests passing |
 | Performance | 5 warmups + 100 measured runs with component timings |
 | Portfolio docs | broker design, architecture, threat model, report, interview guide |
 
@@ -70,7 +70,7 @@ email_messages_after_restart_and_retry: 1
 # 20 passed
 
 .venv/bin/pytest -q
-# 107 passed
+# 111 passed
 ```
 
 The security suite covers reject-before-transaction, raw-transfer repair, repair-child re-verification, memory pre-block and retry, response redaction, unauthorized gateway calls, same-process and restart idempotency, durable waiting approval, scope mismatch, re-verification, denial, audit minimization, crash recovery, authorized resume, provenance hydration, API surface, process separation, and CLI minimization.

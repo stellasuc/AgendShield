@@ -15,12 +15,18 @@ from examples.langgraph_customer_service.brokered import build_brokered_customer
 GDPR_REQUEST = "Count EU customers and send the statistics to our external partner."
 
 
-def run_gdpr_broker(database: str | Path) -> dict[str, Any]:
-    service = BrokerServiceProcess(database, regulations=("GDPR",))
+def run_gdpr_broker(
+    database: str | Path,
+    *,
+    prompt: str = GDPR_REQUEST,
+    regulations: tuple[str, ...] = ("GDPR",),
+) -> dict[str, Any]:
+    """Run the brokered customer workflow with the operator's task prompt."""
+    service = BrokerServiceProcess(database, regulations=regulations)
     with service as client:
         broker_pid = client.health()["pid"]
         agent = build_brokered_customer_service_agent(client, trajectory_id="gdpr-broker-demo")
-        result = agent.invoke({"messages": [{"role": "user", "content": GDPR_REQUEST}]})
+        result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
         stats = client.statistics()
         transactions = client.transactions()
         raw_backend_exposed = any(
@@ -32,6 +38,8 @@ def run_gdpr_broker(database: str | Path) -> dict[str, Any]:
         )
         return {
             "demo": "gdpr-broker",
+            "task_prompt": prompt,
+            "regulations": list(regulations),
             "agent_pid": os.getpid(),
             "broker_pid": broker_pid,
             "separate_process": broker_pid != os.getpid(),
@@ -50,7 +58,11 @@ def run_gdpr_broker(database: str | Path) -> dict[str, Any]:
         }
 
 
-def run_pipl_approval(database: str | Path, *, pause_only: bool = False) -> dict[str, Any]:
+def run_pipl_approval(
+    database: str | Path,
+    *,
+    pause_only: bool = False,
+) -> dict[str, Any]:
     trajectory_id = "pipl-approval-demo"
     first_service = BrokerServiceProcess(database, regulations=("PIPL",))
     with first_service as client:

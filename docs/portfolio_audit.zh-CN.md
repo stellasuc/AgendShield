@@ -12,7 +12,7 @@
 
 | 项目 | 审计结果 |
 | --- | --- |
-| 自动化测试 | 107 passed |
+| 自动化测试 | 111 passed |
 | Broker 安全专项测试 | 20 passed |
 | 性能证据 | 100 次测量 + 5 次预热；Broker Mock 路径平均 14.5311 ms |
 | CLI | policy、demo、run、audit、timeline、transactions、approvals、approve、deny、dashboard |
