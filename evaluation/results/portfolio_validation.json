@@ -1,5 +1,5 @@
 {
-  "automated_tests": 111,
+  "automated_tests": 113,
   "broker_security_tests": 20,
   "benchmark_result": "evaluation/results/broker_runtime.json",
   "benchmark_measured_runs": 100,

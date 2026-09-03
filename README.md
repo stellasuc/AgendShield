@@ -191,7 +191,7 @@ Results were freshly measured in the local deterministic mock environment:
 
 | Validation item | Actual result |
 | --- | ---: |
-| Automated tests | **111 passed** |
+| Automated tests | **113 passed** |
 | Broker security tests | **20 passed** |
 | Benchmark measured runs | **100** (+ 5 warmups) |
 | Brokered safe effect mean / median / p95 | **14.5311 / 14.4495 / 15.3505 ms** |

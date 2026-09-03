@@ -7,7 +7,7 @@ import time
 
 import streamlit as st
 
-from agentshield.planning import ModelConfig
+from agentshield.planning import MODEL_PROVIDERS, ModelConfig, model_provider
 from dashboard.components.audit_view import render_audit, render_effects
 from dashboard.components.decision_view import render_decision
 from dashboard.components.lineage_view import render_lineage
@@ -126,10 +126,26 @@ def _rule_dialog(inspection) -> None:
 
 def _model_config() -> ModelConfig | None:
     with st.expander("第 2 步：配置在线模型连接（必填）", expanded=True):
-        st.caption("安全执行前，在线模型会根据你的任务 Prompt 生成受限行动计划。未配置 API Key 时不能执行任务。")
+        st.caption("安全执行前，在线模型会根据你的任务 Prompt 生成受限行动计划。未配置 API Key 时不能执行任务。支持主流模型服务商与自定义兼容端点。")
+        provider_id = st.selectbox(
+            "模型服务商",
+            options=tuple(item.provider_id for item in MODEL_PROVIDERS),
+            format_func=lambda item: model_provider(item).label,
+            key="model_provider",
+        )
+        provider = model_provider(provider_id)
+        if st.session_state.get("applied_model_provider") != provider_id:
+            st.session_state["model_endpoint"] = provider.base_url
+            st.session_state["model_name"] = provider.suggested_model
+            st.session_state["applied_model_provider"] = provider_id
         api_key = st.text_input("模型 API Key", type="password", key="model_api_key")
-        model = st.text_input("模型名称", key="model_name", placeholder="例如：填写你的账户可用模型名称")
-        endpoint = st.text_input("兼容 OpenAI 的 API 地址", value="https://api.openai.com/v1", key="model_endpoint")
+        model = st.text_input("模型名称", key="model_name", placeholder="填写你的账户可用模型名称")
+        endpoint_label = "OpenAI 兼容 API 地址" if provider.protocol == "openai" else "Anthropic Messages API 地址"
+        endpoint = st.text_input(endpoint_label, key="model_endpoint")
+        protocol_label = "OpenAI Chat Completions 兼容协议" if provider.protocol == "openai" else "Anthropic Messages 原生协议"
+        st.caption(f"当前连接方式：{protocol_label}。可按你的账户权限修改模型名称和 API 地址。")
+        if provider.documentation_url:
+            st.markdown(f"[查看 {provider.label} 官方配置说明]({provider.documentation_url})")
         st.caption("Key 仅保留在当前浏览器会话中，不写入文件、数据库或审计日志。")
         st.caption("点击“安全执行”后，任务 Prompt 与受限能力说明将发送至该端点；模型输出的计划会再由 AgentShield 依据法规逐项核验。")
         if st.button(
@@ -141,7 +157,13 @@ def _model_config() -> ModelConfig | None:
     if not api_key or not model.strip():
         return None
     try:
-        return ModelConfig(api_key=api_key, model=model, base_url=endpoint)
+        return ModelConfig(
+            api_key=api_key,
+            model=model,
+            base_url=endpoint,
+            provider_id=provider.provider_id,
+            protocol=provider.protocol,
+        )
     except ValueError as exc:
         st.error(f"模型连接配置无效：{exc}")
         return None
