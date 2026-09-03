@@ -62,7 +62,7 @@ agentshield dashboard
 # equivalent: streamlit run dashboard/app.py
 ```
 
-The Streamlit visualizer runs each scenario against a fresh temporary SQLite database and renders the shared `SecurityTimeline` projection. It shows actual capability requests, payload-safe lifecycle events, compliance state, data-object lineage, source-linked policy decisions, broker transaction/effect state, and PIPL approval controls. The dashboard calls the real broker approval API; it does not parse terminal output or maintain a parallel compliance simulation.
+The Streamlit visualizer runs each scenario against a fresh temporary SQLite database and renders the shared `SecurityTimeline` projection. The left side shows the Web task agent's actual action trajectory; the right side shows the ShieldAgent rule circuits, atomic predicate assignments, formal verification, and shielding plan for each action. It also shows payload-safe lifecycle events, compliance state, data-object lineage, source-linked policy decisions, broker transaction/effect state, and PIPL approval controls. The dashboard calls the real broker approval API; it does not parse terminal output or maintain a parallel compliance simulation.
 
 ![AgentShield GDPR runtime visualizer](docs/assets/dashboard-gdpr.jpg)
 
@@ -166,13 +166,15 @@ Rules are curated YAML with stable IDs and official source links. See the [regul
 
 ## Relationship to SHIELDAGENT
 
-AgentShield is an engineering project inspired by SHIELDAGENT's policy-based action verification. It extends the pattern into lifecycle-level runtime enforcement for brokered agent capabilities; it is not an official implementation or a reproduction of SHIELDAGENT's trained models, probabilistic circuits, or benchmark.
+AgentShield implements a paper-inspired ShieldAgent control plane: it retrieves action-relevant rule circuits for actual runtime events, assigns TRUE/FALSE/UNKNOWN to atomic predicates, performs deterministic LTL-style verification, and generates an auditable shielding plan. It extends that pattern into lifecycle-level runtime enforcement for brokered agent capabilities; it is not an official implementation or a reproduction of SHIELDAGENT's trained models, learned probabilistic circuit weights, or benchmark.
 
 | Capability | SHIELDAGENT-inspired verification | AgentShield |
 | --- | :---: | :---: |
 | Policy-driven verification | ✓ | ✓ |
 | Relevant state/history | ✓ | ✓ |
 | Current action verification | ✓ | ✓ |
+| Action rule circuits and predicate assignments | ✓ | ✓ (deterministic) |
+| Shielding plan | ✓ | ✓ (audit-persisted) |
 | Persistent typed compliance state | — | ✓ |
 | Object-level data lineage | — | ✓ |
 | Heterogeneous lifecycle hooks | — | ✓ |
@@ -191,7 +193,7 @@ Results were freshly measured in the local deterministic mock environment:
 
 | Validation item | Actual result |
 | --- | ---: |
-| Automated tests | **115 passed** |
+| Automated tests | **118 passed** |
 | Broker security tests | **20 passed** |
 | Benchmark measured runs | **100** (+ 5 warmups) |
 | Brokered safe effect mean / median / p95 | **14.5311 / 14.4495 / 15.3505 ms** |

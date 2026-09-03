@@ -63,6 +63,15 @@ class DeterministicVerifier:
             return bool(actual), predicate.variable
         raise AssertionError(f"Unhandled operator: {predicate.operator}")
 
+    def evaluate_predicate(
+        self,
+        predicate: Predicate,
+        event: LifecycleEvent,
+        state: ComplianceState,
+    ) -> tuple[bool | object, str]:
+        """Expose payload-safe atomic predicate evaluation for ShieldAgent traces."""
+        return self._evaluate(predicate, event, state)
+
     def _resolve(self, variable: str, event: LifecycleEvent, state: ComplianceState) -> Any:
         if variable == "event.event_type":
             return event.event_type.value

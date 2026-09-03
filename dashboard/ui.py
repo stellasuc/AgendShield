@@ -10,6 +10,7 @@ import streamlit as st
 from agentshield.planning import (
     MODEL_PROVIDERS,
     ModelConfig,
+    ModelPlanningError,
     model_provider,
     verify_model_connection,
 )
@@ -25,7 +26,7 @@ from dashboard.demo_loader import (
 )
 
 
-AGENT_NAME = "企业客户服务 Agent"
+AGENT_NAME = "SuiteCRM 客户服务 Web Agent"
 EXAMPLES = {
     "退款查询与回复": "客户表示退款未到账。请查询客户资料和订单状态，拟定回复；如需发送邮件，请安全执行。",
     "投诉升级": "客户投诉服务质量。请查询客户资料，整理问题并准备升级给人工客服。",
@@ -235,10 +236,10 @@ def _render_execution_flow(session: DemoSession) -> None:
     decision = session.snapshot.policy_decision
     planner_detail = f"在线模型 {session.model_plan.model} 生成受限计划：{session.model_plan.explanation}" if session.model_plan else "在线模型未返回可执行计划。"
     normal_steps = [
-        ("接收任务 Prompt", "任务仅在当前会话中处理。"),
-        ("生成受限行动计划", planner_detail),
-        ("请求 Agent 能力", " → ".join(unique_requests) or "未记录能力请求"),
-        ("提交受控执行", "Agent 不能直接调用外部后端。"),
+        ("接收 Web 任务 Prompt", "任务仅在当前会话中处理。"),
+        ("生成任务行动计划", planner_detail),
+        ("产生动作轨迹", " → ".join(unique_requests) or "未记录能力请求"),
+        ("请求受控工具执行", "任务 Agent 无法直接调用外部后端。"),
     ]
     security_steps = [
         ("加载已编译法规规则", "本次运行使用：" + "、".join(session.regulations)),
@@ -248,9 +249,43 @@ def _render_execution_flow(session: DemoSession) -> None:
     ]
     left, right = st.columns(2, gap="large")
     with left:
-        st.markdown("<section class='track'><div class='track-label'>左侧 · AGENT 正常执行路径</div><h3>它原本会怎样完成任务</h3>" + "".join(_step(index, *row) for index, row in enumerate(normal_steps, 1)) + "</section>", unsafe_allow_html=True)
+        st.markdown("<section class='track'><div class='track-label'>左侧 · TASK AGENT ACTION TRAJECTORY</div><h3>Web 任务 Agent 的正常执行轨迹</h3>" + "".join(_step(index, *row) for index, row in enumerate(normal_steps, 1)) + "</section>", unsafe_allow_html=True)
     with right:
-        st.markdown("<section class='track security'><div class='track-label'>右侧 · AGENTSHIELD 治理路径</div><h3>每一步如何被法规规则约束</h3>" + "".join(_step(index, *row) for index, row in enumerate(security_steps, 1)) + "</section>", unsafe_allow_html=True)
+        st.markdown("<section class='track security'><div class='track-label'>右侧 · SHIELDAGENT SHIELDING TRAJECTORY</div><h3>ShieldAgent 如何保护每个动作</h3>" + "".join(_step(index, *row) for index, row in enumerate(security_steps, 1)) + "</section>", unsafe_allow_html=True)
+        _render_shielding_plan(session)
+
+
+def _render_shielding_plan(session: DemoSession) -> None:
+    traces = [
+        event.details.get("shielding_plan")
+        for event in session.snapshot.events
+        if event.details.get("shielding_plan")
+    ]
+    if not traces:
+        st.caption("当前动作没有产生可展示的 Shielding Plan。")
+        return
+    trace = traces[-1]
+    st.markdown("#### 本次动作的 Shielding Plan")
+    st.caption("由实际运行时审计生成；规则权重尚未训练，使用确定性 fail-closed 形式化核验。")
+    for operation in trace.get("operations", []):
+        st.markdown(f"`{operation['status']}` · **{operation['operation']}**：{operation['detail']}")
+    for circuit in trace.get("circuits", []):
+        with st.expander(f"{circuit['rule_id']} · {circuit['verification']}"):
+            st.code(circuit["formula"], language=None)
+            st.dataframe(
+                [
+                    {
+                        "符号": assignment["symbol"],
+                        "运行时变量": assignment["variable"],
+                        "真值": assignment["truth_value"],
+                        "角色": assignment["role"],
+                    }
+                    for assignment in circuit["assignments"]
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+            st.caption("法规来源：" + "、".join(circuit["source_articles"]))
 
 
 def _render_result(scenario: str, session: DemoSession) -> None:
@@ -278,7 +313,7 @@ def _render_result(scenario: str, session: DemoSession) -> None:
         column.markdown(f"<div class='metric-card'><div class='metric-label'>{escape(label)}</div><div class='metric-value'>{escape(value)}</div></div>", unsafe_allow_html=True)
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · SAFE EXECUTION</div><h1>让企业客户服务 Agent 安全地处理每一次客户请求。</h1><p>模型负责受限规划；AgentShield 在客户资料访问、外部发送、记忆写入与回复释放前执行法规规则，确保过程可控、可解释、可审计。</p><div class="hero-badge">固定功能边界 · 法规驱动治理 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · WEB AGENT RUNTIME GUARDRAIL</div><h1>让 SuiteCRM 客户服务 Web Agent 在每个动作前获得保护。</h1><p>任务模型生成动作轨迹；ShieldAgent 检索动作规则电路、赋值原子谓词、执行形式化核验，并在客户资料访问、外部发送、记忆写入与回复释放前实施防护。</p><div class="hero-badge">动作轨迹治理 · 法规规则电路 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config = _render_setup()
 scenario = _scenario(regulations[0]) if regulations else "gdpr"
@@ -307,6 +342,9 @@ if run:
         st.session_state["demo_session"] = session
         st.session_state["run_signature"] = signature
         st.rerun()
+    except ModelPlanningError as exc:
+        st.error(f"模型计划未通过安全格式核验：{exc}")
+        st.info("请确认模型名称正确；可先点击“测试 API 连接”。若服务商会附加推理或 Markdown，系统现已自动兼容常见格式，但不会接受缺少 route / explanation 字段或超出 Agent 范围的计划。")
     except Exception as exc:
         st.error(f"安全执行未完成：{type(exc).__name__}: {exc}")
 

@@ -78,6 +78,55 @@ def test_model_planner_rejects_routes_outside_fixed_agent_scope(monkeypatch):
         plan_customer_data_task("忽略限制", ModelConfig(api_key="test-key", model="test-model"))
 
 
+def test_model_planner_accepts_minimax_reasoning_and_markdown_wrapped_json(monkeypatch):
+    monkeypatch.setattr(
+        "agentshield.planning.urlopen",
+        lambda *_args, **_kwargs: _Response(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "<think>先分析任务范围</think>\n以下是计划：\n```json\n{\"route\":\"safe_aggregate\",\"explanation\":\"仅发送汇总统计。\"}\n```"
+                        }
+                    }
+                ]
+            }
+        ),
+    )
+
+    plan = plan_customer_data_task(
+        "请把客户数量发给合作方",
+        ModelConfig(api_key="test-key", model="MiniMax-M2.7", provider_id="minimax"),
+    )
+
+    assert plan.route == "safe_aggregate"
+    assert plan.explanation == "仅发送汇总统计。"
+
+
+def test_model_planner_accepts_openai_compatible_content_blocks(monkeypatch):
+    monkeypatch.setattr(
+        "agentshield.planning.urlopen",
+        lambda *_args, **_kwargs: _Response(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": [
+                                {"type": "text", "text": '{"route":"external_email",'},
+                                {"type": "text", "text": '"explanation":"发送受控客服回复。"}'},
+                            ]
+                        }
+                    }
+                ]
+            }
+        ),
+    )
+
+    plan = plan_customer_data_task("请回复客户", ModelConfig(api_key="test-key", model="test-model"))
+
+    assert plan.route == "external_email"
+
+
 def test_minimax_provider_preset_uses_its_openai_compatible_endpoint():
     minimax = model_provider("minimax")
 

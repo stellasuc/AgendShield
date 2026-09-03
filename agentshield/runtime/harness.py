@@ -12,6 +12,7 @@ from agentshield.intervention.engine import InterventionEngine
 from agentshield.policy.engine import DeterministicPolicyEngine
 from agentshield.policy.rules import Decision, PolicyDecision
 from agentshield.runtime.lifecycle import LifecycleEvent
+from agentshield.shield_agent import ShieldAgent, ShieldingPlan
 from agentshield.state.manager import ComplianceStateManager
 from agentshield.state.models import ComplianceState
 from typing import TYPE_CHECKING
@@ -27,6 +28,7 @@ class EnforcementResult:
     decisions: tuple[PolicyDecision, ...]
     outcome: Decision
     repair_attempts: int
+    shielding_plans: tuple[ShieldingPlan, ...] = ()
 
 
 class ComplianceHarness:
@@ -46,6 +48,7 @@ class ComplianceHarness:
         self.state = state
         self.manager = ComplianceStateManager(state, detector=detector)
         self.interventions = InterventionEngine()
+        self.shield_agent = ShieldAgent(engine.policy_set, engine.verifier)
         self.audit = audit_logger
         self.max_repair_attempts = max_repair_attempts
         if audit_failure_mode not in {"fail_open", "fail_closed"}:
@@ -57,6 +60,7 @@ class ComplianceHarness:
         original = event
         current = event
         decisions: list[PolicyDecision] = []
+        shielding_plans: list[ShieldingPlan] = []
         repairs = 0
 
         while True:
@@ -78,6 +82,9 @@ class ComplianceHarness:
 
                 diff = StateDiff()
             decisions.append(decision)
+            shielding_plans.append(
+                self.shield_agent.shield(current, self.state, diff, decision)
+            )
             self.metrics["verification_triggers"] += 0 if decision.verification_skipped else 1
             self.metrics["events_skipped"] += 1 if decision.verification_skipped else 0
             self.metrics["rules_evaluated"] += decision.rules_evaluated
@@ -111,6 +118,7 @@ class ComplianceHarness:
             decisions=tuple(decisions),
             outcome=final_outcome,
             repair_attempts=repairs,
+            shielding_plans=tuple(shielding_plans),
         )
 
     def _record_decision(self, event: LifecycleEvent, decision: PolicyDecision) -> None:

@@ -54,6 +54,15 @@ def test_gdpr_timeline_uses_runtime_evidence_and_redacts_payload(tmp_path):
     assert snapshot.policy_decision.regulation == "GDPR"
     assert snapshot.policy_decision.source_url.startswith("https://")
     assert snapshot.policy_decision.reverification == "PASS"
+    shielding_event = next(
+        event
+        for event in snapshot.events
+        if event.details.get("shielding_plan", {}).get("circuits")
+    )
+    shielding_plan = shielding_event.details["shielding_plan"]
+    assert shielding_plan["circuits"]
+    assert shielding_plan["operations"][-1]["operation"] == "Generate shielding plan"
+    assert shielding_plan["probabilistic_weights"] == "not_implemented_deterministic_fail_closed"
 
     raw = next(item for item in snapshot.data_objects if item.contains_personal_data)
     aggregate = next(

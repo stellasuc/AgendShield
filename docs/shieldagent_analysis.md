@@ -92,7 +92,7 @@ AgentShield borrows the following ideas at the architectural level:
 - explicit violated-rule and source-grounded explanations;
 - extensible Search, Binary-Check, Detect, and Formal Verify operation slots.
 
-The local implementation is original code. Its `ShieldAgentStyleVerifier` is an interface with a deterministic implementation; it does not claim equivalence with the paper's learned models, ASPM training, Markov Logic Network, or benchmark results.
+The local implementation is original code. At runtime it emits a rule-circuit projection for each actual brokered action, assigns TRUE/FALSE/UNKNOWN to atomic predicates, performs deterministic LTL-style verification, and persists an auditable shielding plan. `ShieldAgentStyleVerifier` remains an extensible interface; the project does not claim equivalence with the paper's learned models, ASPM training, Markov Logic Network, or benchmark results.
 
 ## Capabilities belonging to SHIELDAGENT
 
@@ -131,4 +131,4 @@ runtime lifecycle event
 
 AgentShield extends enforcement to user requests, plans, tool calls and results, external transfers, memory writes, logs, consent updates, approvals, and trust-boundary responses. Data is represented by object identity, classification, purpose, transformations, recipients, and provenance so an aggregate can be non-personal without erasing the classification of its raw source. A variable-to-rule index skips verification when a state diff cannot affect a rule, while side-effectful and trust-boundary events are always checked. Repairs create a new event and data object, record provenance, update state, and pass through verification again before release.
 
-This is an engineering extension of the policy-verification pattern, not a claim of novelty over every history-aware guardrail and not a modification of official SHIELDAGENT code.
+This is an engineering extension of the policy-verification pattern: it records a shielding plan for each actual brokered action, but does not introduce the paper's learned probabilistic inference or training components. It is not a claim of novelty over every history-aware guardrail and not a modification of official SHIELDAGENT code.

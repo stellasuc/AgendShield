@@ -44,7 +44,7 @@ Run:
 
 ## 2:30–2:50 — Evidence and close
 
-“The project currently passes 115 automated tests, including 20 focused Broker security tests. A 100-run local Mock benchmark measured a 14.5311 ms mean Broker path; that is transparent local evidence, not a production latency claim.”
+“The project currently passes 117 automated tests, including 20 focused Broker security tests. A 100-run local Mock benchmark measured a 14.5311 ms mean Broker path; that is transparent local evidence, not a production latency claim.”
 
 End on the timeline: “The differentiator is the combination of lifecycle enforcement, object-scoped state, lineage, capability mediation, and durable effect safety.”
 

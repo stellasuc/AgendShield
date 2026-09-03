@@ -92,7 +92,7 @@ AgentShield 在架构层面借鉴：
 - 显式输出违反规则与基于来源的解释；
 - 可扩展的 Search、Binary-Check、Detect 和 Formal Verify 操作插槽。
 
-本地实现为原创代码。`ShieldAgentStyleVerifier` 是一个接口，当前实现是确定性的；项目不声称等价于论文中的训练模型、ASPM 训练、马尔可夫逻辑网络或基准结果。
+本地实现为原创代码。运行时会基于真实 Broker 动作生成规则电路、原子谓词 TRUE/FALSE/UNKNOWN 赋值、确定性 LTL 风格验证和可审计的 Shielding Plan；`ShieldAgentStyleVerifier` 仍是可扩展接口。项目不声称等价于论文中的训练模型、ASPM 训练、马尔可夫逻辑网络或基准结果。
 
 ## 属于 SHIELDAGENT、AgentShield 不作声明的能力
 
@@ -131,6 +131,6 @@ AgentShield
 
 AgentShield 将强制执行扩展到用户请求、计划、工具调用与结果、外部传输、记忆写入、日志、同意更新、审批和信任边界响应。数据以对象身份、分类、目的、转换、接收方和来源表示，因此聚合结果可以不再是个人数据，同时不会抹除原始来源的分类。变量到规则索引会在状态差异无法影响规则时跳过校验，而具有副作用或跨信任边界的事件始终被检查。修复会创建新事件和数据对象，记录来源，更新状态，并在发布前重新校验。
 
-当前架构进一步把这套校验用于独立 Capability Broker 内的持久副作用事务，但并未引入论文中的概率推理或训练组件。
+当前架构进一步把这套校验用于独立 Capability Broker 内的持久副作用事务，并将每次实际动作的 Shielding Plan 写入审计；但并未引入论文中的概率推理或训练组件。
 
 这是对策略校验模式的独立工程扩展，不声称对所有历史感知 Guardrail 具有创新性，也不修改 SHIELDAGENT 官方代码。

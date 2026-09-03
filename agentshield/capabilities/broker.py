@@ -219,7 +219,14 @@ class CapabilityBroker:
                 },
             )
             self._save(transaction)
-            self._audit(transaction, "POLICY_DECISION", {"decision": exc.outcome.value})
+            self._audit(
+                transaction,
+                "POLICY_DECISION",
+                {
+                    "decision": exc.outcome.value,
+                    "shielding_plan": _shielding_plan(context),
+                },
+            )
             return self._response(
                 transaction,
                 disposition="WAITING_APPROVAL" if waiting else "BLOCKED",
@@ -251,6 +258,7 @@ class CapabilityBroker:
                     "decision": "REPAIR",
                     "intervention": repair_strategy,
                     "data_object_ids": list(transaction.referenced_data_objects),
+                    "shielding_plan": _shielding_plan(context),
                 },
             )
             execution_transaction = EffectTransaction(
@@ -309,7 +317,14 @@ class CapabilityBroker:
                 },
             )
             self._save(execution_transaction)
-        self._audit(execution_transaction, "AUTHORIZED", {"decision": "ALLOW"})
+        self._audit(
+            execution_transaction,
+            "AUTHORIZED",
+            {
+                "decision": "ALLOW",
+                "shielding_plan": _shielding_plan(context),
+            },
+        )
         execution_transaction = execution_transaction.update(
             status=EffectStatus.EXECUTING,
             execution_attempts=execution_transaction.execution_attempts + 1,
@@ -588,6 +603,12 @@ def _activated_rules(context: ToolCallContext | None) -> tuple[str, ...]:
             for rule in (*decision.activated_rules, *decision.violated_rules)
         )
     )
+
+
+def _shielding_plan(context: ToolCallContext | None) -> Mapping[str, object] | None:
+    if context is None or not context.enforcement.shielding_plans:
+        return None
+    return context.enforcement.shielding_plans[-1].audit_view()
 
 
 def _repair_strategy(context: ToolCallContext) -> str:

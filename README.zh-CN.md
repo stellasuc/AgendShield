@@ -62,7 +62,7 @@ agentshield dashboard
 # 等价命令：streamlit run dashboard/app.py
 ```
 
-Streamlit 可视化器为每个场景创建全新的临时 SQLite 数据库，并渲染共享的 `SecurityTimeline` 投影。界面展示真实能力请求、载荷安全的生命周期事件、合规状态、数据对象血缘、带法规来源的策略决策、Broker 事务/副作用状态，以及 PIPL 审批控件。Dashboard 调用真实 Broker 审批 API，不解析终端输出，也不维护平行的合规模拟逻辑。
+Streamlit 可视化器为每个场景创建全新的临时 SQLite 数据库，并渲染共享的 `SecurityTimeline` 投影。左侧展示 Web 任务 Agent 的实际动作轨迹；右侧展示 ShieldAgent 为每个动作检索到的规则电路、原子谓词真值、形式化核验和 Shielding Plan。界面还展示载荷安全的生命周期事件、合规状态、数据对象血缘、带法规来源的策略决策、Broker 事务/副作用状态，以及 PIPL 审批控件。Dashboard 调用真实 Broker 审批 API，不解析终端输出，也不维护平行的合规模拟逻辑。
 
 ![AgentShield GDPR 运行时可视化](docs/assets/dashboard-gdpr.jpg)
 
@@ -166,13 +166,15 @@ CREATED → CHECKING → AUTHORIZED → EXECUTING → SUCCEEDED
 
 ## 与 SHIELDAGENT 的关系
 
-AgentShield 是受 SHIELDAGENT 策略驱动动作校验启发的独立工程项目，并将这一模式扩展为针对 Broker 化 Agent 能力的生命周期级运行时强制执行。它不是官方实现，也没有复现 SHIELDAGENT 的训练模型、概率电路或评测基准。
+AgentShield 实现了论文式 ShieldAgent 运行时控制面：对实际动作检索相关规则电路、为原子谓词赋 TRUE/FALSE/UNKNOWN、执行确定性 LTL 风格核验，并生成可审计的 Shielding Plan。它将该模式扩展为针对 Broker 化 Agent 能力的生命周期级运行时强制执行。它不是官方实现，也没有复现 SHIELDAGENT 的训练模型、学习得到的概率电路权重或评测基准。
 
 | 能力 | SHIELDAGENT 启发的校验 | AgentShield |
 | --- | :---: | :---: |
 | 策略驱动校验 | ✓ | ✓ |
 | 使用相关状态/历史 | ✓ | ✓ |
 | 当前动作校验 | ✓ | ✓ |
+| 动作规则电路与谓词真值 | ✓ | ✓（确定性实现） |
+| Shielding Plan | ✓ | ✓（审计持久化） |
 | 持久化类型化合规状态 | — | ✓ |
 | 对象级数据血缘 | — | ✓ |
 | 异构生命周期钩子 | — | ✓ |
@@ -191,7 +193,7 @@ AgentShield 是受 SHIELDAGENT 策略驱动动作校验启发的独立工程项�
 
 | 验证项 | 实际结果 |
 | --- | ---: |
-| 自动化测试 | **115 passed** |
+| 自动化测试 | **118 passed** |
 | Broker 安全专项测试 | **20 passed** |
 | 基准实测次数 | **100**（另有 5 次预热） |
 | Broker 安全副作用平均 / 中位数 / p95 | **14.5311 / 14.4495 / 15.3505 ms** |
