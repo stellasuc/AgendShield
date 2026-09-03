@@ -94,7 +94,7 @@ AgentShield borrows the following ideas at the architectural level:
 
 The local implementation is original code. At runtime it emits a rule-circuit projection for each actual brokered action, assigns TRUE/FALSE/UNKNOWN to atomic predicates, performs deterministic LTL-style verification, and persists an auditable shielding plan. `ShieldAgentStyleVerifier` remains an extensible interface; the project does not claim equivalence with the paper's learned models, ASPM training, Markov Logic Network, or benchmark results.
 
-The current demonstration uses a local WebArena-style Web task agent with Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM environments. Its page reads and action submissions travel through the independent Capability Broker; SuiteCRM customer records demonstrate GDPR minimization repair. This is an auditable engineering scenario aligned to the paper's environment categories, not a reproduction of WebArena, AWM, or the paper's experiments.
+The current demonstration uses a local WebArena-style Web task agent with Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM environments. Its page reads and action submissions travel through the independent Capability Broker. Shopping is the complete primary scenario with search, product-detail HTML, AX-tree-style observations, a cart, and simulated orders. SuiteCRM demonstrates GDPR minimization repair; the remaining environments are lightweight executable fixtures. This is an auditable engineering scenario aligned to the paper's environment categories, not a reproduction of WebArena, AWM, or the paper's experiments.
 
 ## Capabilities belonging to SHIELDAGENT
 

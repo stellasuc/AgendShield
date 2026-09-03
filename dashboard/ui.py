@@ -24,11 +24,12 @@ from dashboard.demo_loader import (
     resolve_pipl_approval,
     run_demo,
 )
+from examples.web_task_agent.shopping import storefront_snapshot
 
 
 AGENT_NAME = "WebArena 风格 Web Task Agent"
 EXAMPLES = {
-    "购物站任务": "在购物网站查看商品页面，并提交一项受控的购买后操作。",
+    "购物站任务（推荐）": "在购物网站中寻找预算不超过 600 元的降噪耳机，选择评分最高的一款加入购物车，不要下单。",
     "内容管理任务": "在 CMS 中查看季度更新草稿，并提交一项受控的发布准备操作。",
     "社区任务": "在 Reddit 风格社区查看支持帖子，并提交一项受控的跟进操作。",
     "代码协作任务": "在 GitLab 中查看合并请求，并提交一项受控的代码协作操作。",
@@ -53,6 +54,7 @@ st.markdown(
     .agent-card,.policy-ready,.track {border:1px solid #dfe7ef;border-radius:14px;background:#fff;padding:1rem 1.05rem;}.agent-card h3,.track h3 {font-size:1rem;margin:.1rem 0 .4rem;color:#172033;}.agent-card p,.track p {font-size:.9rem;color:#64748b;line-height:1.48;margin:0;}.agent-tag {font-size:.76rem;font-weight:800;color:#08736a;letter-spacing:.08em;}.policy-ready {border-color:#b9d9f8;background:#f5faff;color:#25445f;font-size:.9rem;line-height:1.55;margin:.6rem 0;}
     .result {border-radius:16px;padding:1.15rem 1.3rem;margin:1rem 0;border:1px solid #a7ded3;background:#effbf8;}.result.waiting {border-color:#f5c77e;background:#fff8e9;}.result h2 {font-size:1.3rem;margin:0 0 .35rem;color:#13453e;}.result.waiting h2 {color:#754b00;}.result p {margin:0;color:#4b5e6d;line-height:1.5;}
     .metric-card {border:1px solid #e2e8f0;border-radius:13px;padding:.85rem .95rem;background:#fbfdff;}.metric-label {font-size:.78rem;font-weight:700;color:#64748b;}.metric-value {font-size:1.18rem;font-weight:800;color:#172033;margin-top:.18rem;}
+    .store-shell {border:1px solid #dce3ec;border-radius:18px;background:#f8fafc;overflow:hidden;margin:.65rem 0 1rem;box-shadow:0 8px 24px rgba(15,23,42,.06);}.store-top {display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;background:#111827;color:#fff;}.store-brand {font-size:1rem;font-weight:900;letter-spacing:.04em}.store-meta {font-size:.78rem;color:#cbd5e1}.store-search {margin:.9rem 1rem;padding:.68rem .8rem;background:#fff;border:1px solid #d8e0ea;border-radius:10px;color:#475569;font-size:.86rem}.product-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;padding:0 1rem 1rem}.product-card {position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:.9rem;min-height:154px}.product-card.selected {border:2px solid #0f766e;background:#f0fdfa}.product-category {font-size:.7rem;font-weight:800;color:#0f766e;letter-spacing:.08em}.product-title {font-size:.92rem;font-weight:800;color:#172033;margin:.35rem 0;line-height:1.35}.product-desc {font-size:.76rem;color:#64748b;line-height:1.4}.product-bottom {display:flex;justify-content:space-between;align-items:end;margin-top:.65rem}.product-price {font-size:1.05rem;font-weight:900;color:#b45309}.product-rating {font-size:.75rem;color:#64748b}.selected-tag {position:absolute;right:.6rem;top:.55rem;background:#0f766e;color:#fff;border-radius:999px;padding:.16rem .42rem;font-size:.66rem;font-weight:800}.cart-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:.84rem}.order-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:.84rem}.env-note {font-size:.78rem;color:#64748b;padding:0 1rem 1rem}@media(max-width:800px){.product-grid{grid-template-columns:1fr}.store-top{align-items:flex-start;gap:.35rem;flex-direction:column}}
     .track {min-height:280px;background:#fbfdff;}.track.security {background:#f4fbf9;border-color:#b7ded6;}.track-label {font-size:.76rem;font-weight:800;letter-spacing:.08em;color:#08736a;margin-bottom:.65rem;}.process-step {display:flex;gap:.7rem;padding:.58rem 0;border-top:1px solid #e8edf2;}.process-step:first-of-type {border-top:0;}.step-dot {height:1.45rem;width:1.45rem;min-width:1.45rem;border-radius:50%;background:#dceaf8;color:#14507a;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;}.security .step-dot {background:#cceee5;color:#07665e;}.step-copy {font-size:.88rem;color:#334155;line-height:1.42;}.step-copy small {display:block;color:#718096;margin-top:.08rem;}
     [data-testid="stMetric"] {border:1px solid #e2e8f0;border-radius:12px;padding:.7rem .9rem;}
     </style>
@@ -186,10 +188,63 @@ def _model_config() -> ModelConfig | None:
     return config
 
 
+def _render_shopping_environment(environment_state: dict | None = None) -> None:
+    state = environment_state or {
+        "storefront": storefront_snapshot(),
+        "selected_product": None,
+        "cart": {"items": [], "item_count": 0, "total": 0.0, "currency": "CNY"},
+        "order": None,
+    }
+    storefront = state.get("storefront") or storefront_snapshot()
+    selected = state.get("selected_product") or {}
+    cart = state.get("cart") or {"items": [], "item_count": 0, "total": 0.0}
+    cards = []
+    for product in storefront.get("items", []):
+        is_selected = product.get("product_id") == selected.get("product_id")
+        cards.append(
+            "<article class='product-card{selected_class}'>"
+            "{selected_tag}<div class='product-category'>{category}</div>"
+            "<div class='product-title'>{title}</div><div class='product-desc'>{description}</div>"
+            "<div class='product-bottom'><div class='product-price'>¥{price:.2f}</div>"
+            "<div class='product-rating'>★ {rating} · {reviews} 条评价<br>库存 {stock}</div></div></article>".format(
+                selected_class=" selected" if is_selected else "",
+                selected_tag="<span class='selected-tag'>AGENT 已选择</span>" if is_selected else "",
+                category=escape(str(product.get("category", "商品"))),
+                title=escape(str(product.get("product", ""))),
+                description=escape(str(product.get("description", ""))),
+                price=float(product.get("price", 0)),
+                rating=escape(str(product.get("rating", "-"))),
+                reviews=escape(str(product.get("reviews", 0))),
+                stock=escape(str(product.get("stock", 0))),
+            )
+        )
+    query = storefront.get("query") or "全部商品"
+    budget = "不限" if storefront.get("max_price") is None else f"¥{float(storefront['max_price']):.2f}"
+    order = state.get("order")
+    order_html = ""
+    if order:
+        order_html = (
+            f"<div class='order-bar'><strong>模拟订单 {escape(str(order['order_id']))}</strong> · "
+            f"总额 ¥{float(order['total']):.2f} · 状态：仅本地记录，未扣款</div>"
+        )
+    st.markdown(
+        "<section class='store-shell'><div class='store-top'><div class='store-brand'>NORTHSTAR MARKET</div>"
+        "<div class='store-meta'>本地 WebArena 风格环境 · 不连接真实支付</div></div>"
+        f"<div class='store-search'>🔎 {escape(str(query))}　预算：{escape(budget)}　·　找到 {len(cards)} 件商品</div>"
+        f"<div class='product-grid'>{''.join(cards)}</div>"
+        f"<div class='cart-bar'><strong>购物车</strong> · {int(cart.get('item_count', 0))} 件商品 · 合计 ¥{float(cart.get('total', 0)):.2f}</div>"
+        f"{order_html}<div class='env-note'>页面观察同时生成 HTML 与 accessibility tree；Agent 只能通过 Capability Broker 读取页面和修改购物车。</div></section>",
+        unsafe_allow_html=True,
+    )
+
+
 def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
     st.markdown(f"## {AGENT_NAME}")
     st.caption("论文式 Web 任务 Agent：根据你的 Prompt 在 WebArena 风格环境中读取页面并提交受控动作；实际环境由模型生成的受限计划选择。")
     st.markdown("<div class='agent-card'><div class='agent-tag'>AGENT 能力范围</div><h3>受保护的 Web 任务执行，不是通用万能助手</h3><p>支持：购物、CMS、Reddit、GitLab、地图与 SuiteCRM 环境中的页面读取与动作提交。<br>不支持：真实网站登录、未注册工具调用、绕过 Broker、直接访问原始后端或擅自扩展业务范围。</p></div>", unsafe_allow_html=True)
+    with st.expander("查看完整 Shopping 演示环境", expanded=False):
+        st.caption("这是本地可变状态的购物站，不是静态截图。执行任务后，搜索结果、Agent 选择、购物车和模拟订单会按实际结果更新。")
+        _render_shopping_environment()
     st.markdown("### 第 1 步：选择要遵守的法律法规")
     regulation_column, rule_column, spacer = st.columns((2.2, 1, 1.8), gap="medium", vertical_alignment="bottom")
     with regulation_column:
@@ -220,6 +275,13 @@ def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
 
 def _result_copy(scenario: str, session: DemoSession) -> tuple[str, str, bool]:
     if session.web_environment:
+        if session.web_environment == "shopping":
+            action = session.result.get("task_action")
+            if action == "place_order":
+                return "本地模拟订单已通过安全执行", "订单仅写入本地 Broker 后端，没有连接支付系统或产生真实扣款。", False
+            if action == "add_to_cart":
+                return "商品已安全加入本地购物车", "Agent 完成了检索、预算过滤、商品选择和受控购物车修改；没有提交订单。", False
+            return "商品检索已安全完成", "Agent 读取了真实本地商品目录并完成筛选，没有产生购物车或订单副作用。", False
         repaired = session.result.get("repair_transactions", 0)
         if repaired:
             return "ShieldAgent 已修复并重新核验 Web 动作", f"{session.web_environment} 环境中的原始数据动作已被最小化处理后再执行。", False
@@ -242,11 +304,20 @@ def _render_execution_flow(session: DemoSession) -> None:
     requests = [event.capability_id for event in session.snapshot.events if event.event_type == "CAPABILITY_REQUEST" and event.capability_id]
     unique_requests = list(dict.fromkeys(requests))
     decision = session.snapshot.policy_decision
-    planner_detail = f"在线模型 {session.model_plan.model} 生成受限计划：{session.model_plan.explanation}" if session.model_plan else "在线模型未返回可执行计划。"
+    planner_detail = (
+        f"在线模型 {session.model_plan.model} 生成受限计划：{session.model_plan.task_action} · {session.model_plan.explanation}"
+        if session.model_plan
+        else "本地测试解释器生成受限计划。"
+    )
+    trace = session.result.get("tool_trace", [])
+    action_trace = " → ".join(
+        f"{item['capability']}({item.get('arguments', {}).get('action') or item.get('arguments', {}).get('page') or 'release'})"
+        for item in trace
+    )
     normal_steps = [
         ("接收 Web 任务 Prompt", "任务仅在当前会话中处理。"),
         ("生成任务行动计划", planner_detail),
-        ("产生动作轨迹", " → ".join(unique_requests) or "未记录能力请求"),
+        ("产生动作轨迹", action_trace or " → ".join(unique_requests) or "未记录能力请求"),
         ("请求受控工具执行", "任务 Agent 无法直接调用外部后端。"),
     ]
     security_steps = [
@@ -265,35 +336,36 @@ def _render_execution_flow(session: DemoSession) -> None:
 
 def _render_shielding_plan(session: DemoSession) -> None:
     traces = [
-        event.details.get("shielding_plan")
+        (event.capability_id or "runtime.action", event.details.get("shielding_plan"))
         for event in session.snapshot.events
         if event.details.get("shielding_plan")
     ]
     if not traces:
         st.caption("当前动作没有产生可展示的 Shielding Plan。")
         return
-    trace = traces[-1]
-    st.markdown("#### 本次动作的 Shielding Plan")
+    st.markdown("#### 各动作的 Shielding Plan")
     st.caption("由实际运行时审计生成；规则权重尚未训练，使用确定性 fail-closed 形式化核验。")
-    for operation in trace.get("operations", []):
-        st.markdown(f"`{operation['status']}` · **{operation['operation']}**：{operation['detail']}")
-    for circuit in trace.get("circuits", []):
-        with st.expander(f"{circuit['rule_id']} · {circuit['verification']}"):
-            st.code(circuit["formula"], language=None)
-            st.dataframe(
-                [
-                    {
-                        "符号": assignment["symbol"],
-                        "运行时变量": assignment["variable"],
-                        "真值": assignment["truth_value"],
-                        "角色": assignment["role"],
-                    }
-                    for assignment in circuit["assignments"]
-                ],
-                width="stretch",
-                hide_index=True,
-            )
-            st.caption("法规来源：" + "、".join(circuit["source_articles"]))
+    for trace_index, (capability, trace) in enumerate(traces, 1):
+        with st.expander(f"动作 {trace_index} · {capability} · {trace.get('final_label', 'verified')}"):
+            for operation in trace.get("operations", []):
+                st.markdown(f"`{operation['status']}` · **{operation['operation']}**：{operation['detail']}")
+            for circuit in trace.get("circuits", []):
+                st.markdown(f"**{circuit['rule_id']} · {circuit['verification']}**")
+                st.code(circuit["formula"], language=None)
+                st.dataframe(
+                    [
+                        {
+                            "符号": assignment["symbol"],
+                            "运行时变量": assignment["variable"],
+                            "真值": assignment["truth_value"],
+                            "角色": assignment["role"],
+                        }
+                        for assignment in circuit["assignments"]
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+                st.caption("法规来源：" + "、".join(circuit["source_articles"]))
 
 
 def _render_result(scenario: str, session: DemoSession) -> None:
@@ -315,10 +387,24 @@ def _render_result(scenario: str, session: DemoSession) -> None:
                 st.rerun()
             except Exception as exc:
                 st.error(f"拒绝失败：{type(exc).__name__}: {exc}")
-    values = (("Web 环境", session.web_environment), ("受控网页动作", f"{session.result.get('web_actions', 0)} 次"), ("ShieldAgent 复核", "已完成")) if session.web_environment else (("原始个人数据外发", "0 次"), ("安全汇总外发", f"{session.result.get('aggregate_messages', 0)} 次"), ("发送前重新核验", "通过")) if scenario == "gdpr" else (("人工决定", session.result.get("operator_decision", "等待审批")), ("实际邮件效果", f"{session.result.get('email_messages_after_decision', 0)} 次"), ("策略复核", "已完成" if not waiting else "等待人工决定"))
+    if session.web_environment == "shopping":
+        state = session.result.get("environment_state", {})
+        cart = state.get("cart", {})
+        values = (("Web 环境", "Shopping"), ("受控副作用", f"{session.result.get('web_actions', 0)} 次"), ("购物车 / 订单", f"{cart.get('item_count', 0)} 件 / {'已创建' if state.get('order') else '未创建'}"))
+    elif session.web_environment:
+        values = (("Web 环境", session.web_environment), ("受控网页动作", f"{session.result.get('web_actions', 0)} 次"), ("ShieldAgent 复核", "已完成"))
+    elif scenario == "gdpr":
+        values = (("原始个人数据外发", "0 次"), ("安全汇总外发", f"{session.result.get('aggregate_messages', 0)} 次"), ("发送前重新核验", "通过"))
+    else:
+        values = (("人工决定", session.result.get("operator_decision", "等待审批")), ("实际邮件效果", f"{session.result.get('email_messages_after_decision', 0)} 次"), ("策略复核", "已完成" if not waiting else "等待人工决定"))
     columns = st.columns(3)
     for column, (label, value) in zip(columns, values):
         column.markdown(f"<div class='metric-card'><div class='metric-label'>{escape(label)}</div><div class='metric-value'>{escape(value)}</div></div>", unsafe_allow_html=True)
+    if session.web_environment == "shopping":
+        st.markdown("### Agent 操作后的 Shopping 环境")
+        _render_shopping_environment(session.result.get("environment_state"))
+        if session.result.get("scope_guard"):
+            st.warning(session.result["scope_guard"])
 
 
 st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · WEB AGENT RUNTIME GUARDRAIL</div><h1>让 Web 任务 Agent 在每个网页动作前获得保护。</h1><p>任务模型在 Shopping、CMS、Reddit、GitLab、Maps 或 SuiteCRM 环境中生成动作轨迹；ShieldAgent 检索动作规则电路、赋值原子谓词、执行形式化核验，并在页面读取、外部提交、记忆写入与响应发布前实施防护。</p><div class="hero-badge">动作轨迹治理 · 法规规则电路 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
@@ -352,7 +438,7 @@ if run:
         st.rerun()
     except ModelPlanningError as exc:
         st.error(f"模型计划未通过安全格式核验：{exc}")
-        st.info("请确认模型名称正确；可先点击“测试 API 连接”。若服务商会附加推理或 Markdown，系统现已自动兼容常见格式，但不会接受缺少 route / explanation 字段或超出 Agent 范围的计划。")
+        st.info("请确认模型名称正确；可先点击“测试 API 连接”。系统兼容常见推理标签和 Markdown 包装，但只接受固定 Web 环境、动作、搜索词、预算、数量与说明字段。")
     except Exception as exc:
         st.error(f"安全执行未完成：{type(exc).__name__}: {exc}")
 

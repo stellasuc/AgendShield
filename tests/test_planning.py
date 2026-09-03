@@ -128,6 +128,43 @@ def test_model_planner_reads_the_selected_web_environment(monkeypatch):
     assert plan.environment == "gitlab"
 
 
+def test_model_planner_accepts_a_bounded_shopping_plan(monkeypatch):
+    monkeypatch.setattr(
+        "agentshield.planning.urlopen",
+        lambda *_args, **_kwargs: _Response(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "route": "execute_web_task",
+                                    "environment": "shopping",
+                                    "task_action": "add_to_cart",
+                                    "query": "降噪耳机",
+                                    "max_price": 600,
+                                    "quantity": 1,
+                                    "explanation": "筛选预算内评分最高的耳机并加入购物车。",
+                                }
+                            )
+                        }
+                    }
+                ]
+            }
+        ),
+    )
+
+    plan = plan_customer_data_task(
+        "找一款预算 600 元以内的降噪耳机加入购物车",
+        ModelConfig(api_key="test-key", model="test-model"),
+    )
+
+    assert plan.task_action == "add_to_cart"
+    assert plan.query == "降噪耳机"
+    assert plan.max_price == 600.0
+    assert plan.quantity == 1
+
+
 def test_model_planner_accepts_openai_compatible_content_blocks(monkeypatch):
     monkeypatch.setattr(
         "agentshield.planning.urlopen",

@@ -94,7 +94,7 @@ AgentShield 在架构层面借鉴：
 
 本地实现为原创代码。运行时会基于真实 Broker 动作生成规则电路、原子谓词 TRUE/FALSE/UNKNOWN 赋值、确定性 LTL 风格验证和可审计的 Shielding Plan；`ShieldAgentStyleVerifier` 仍是可扩展接口。项目不声称等价于论文中的训练模型、ASPM 训练、马尔可夫逻辑网络或基准结果。
 
-当前演示场景是本地 WebArena 风格的 Web 任务 Agent：Shopping、CMS、Reddit、GitLab、Maps 和 SuiteCRM。其页面读取与动作提交均经由独立 Capability Broker；SuiteCRM 的客户记录用于演示 GDPR 最小化修复。这是与论文评测环境类别对齐的可审计工程场景，并非 WebArena、AWM 或论文实验设置的复现。
+当前演示场景是本地 WebArena 风格的 Web 任务 Agent：Shopping、CMS、Reddit、GitLab、Maps 和 SuiteCRM。其页面读取与动作提交均经由独立 Capability Broker。Shopping 是包含搜索、详情 HTML、AX-tree 风格观察、购物车和模拟订单的完整主场景；SuiteCRM 客户记录用于演示 GDPR 最小化修复；其余为轻量可执行环境。这是与论文评测环境类别对齐的可审计工程场景，并非 WebArena、AWM 或论文实验设置的复现。
 
 ## 属于 SHIELDAGENT、AgentShield 不作声明的能力
 

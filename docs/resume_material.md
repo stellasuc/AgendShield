@@ -15,7 +15,7 @@
 
 - Engineered a typed Python/LangGraph runtime that normalizes agent lifecycle events, detects personal/sensitive data, resolves object-scoped state and lineage, and evaluates curated GDPR/PIPL technical controls with source-linked explanations.
 - Built a loopback capability broker and reference-monitor gateway with durable transactions, blocked-parent/reverified-child repair, approval pause/resume across restart, and application-level at-most-once replay for completed effects.
-- Delivered three repeatable security demos plus a real-data Streamlit visualizer; measured a 14.5311 ms mean brokered mock path across 100 runs and passed 121 tests (20 broker-security), explicitly scoped as local—not production—evidence.
+- Delivered three repeatable security demos plus a real-data Streamlit visualizer; measured a 14.5311 ms mean brokered mock path across 100 runs and passed 125 tests (20 broker-security), explicitly scoped as local—not production—evidence.
 
 ## Interview-safe wording
 

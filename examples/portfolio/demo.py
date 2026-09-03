@@ -65,6 +65,10 @@ def run_web_task_broker(
     prompt: str,
     regulations: tuple[str, ...],
     environment: str,
+    task_action: str = "inspect",
+    query: str = "",
+    max_price: float | None = None,
+    quantity: int = 1,
     trajectory_id: str = "web-task-demo",
 ) -> dict[str, Any]:
     """Run a brokered WebArena-style task agent against a local web fixture."""
@@ -76,6 +80,10 @@ def run_web_task_broker(
             {
                 "messages": [{"role": "user", "content": prompt}],
                 "environment": environment,
+                "task_action": task_action,
+                "query": query,
+                "max_price": max_price,
+                "quantity": quantity,
             }
         )
         stats = client.statistics()
@@ -89,6 +97,13 @@ def run_web_task_broker(
             "broker_pid": broker_pid,
             "separate_process": broker_pid != os.getpid(),
             "response": result["response"],
+            "task_action": result.get("task_action", task_action),
+            "query": result.get("query", query),
+            "max_price": result.get("max_price", max_price),
+            "quantity": result.get("quantity", quantity),
+            "tool_trace": result.get("tool_trace", []),
+            "environment_state": result.get("environment_state", {}),
+            "scope_guard": result.get("scope_guard"),
             "web_actions": stats["web_actions"],
             "raw_pii_messages": stats["raw_pii_messages"],
             "aggregate_messages": stats["aggregate_messages"],

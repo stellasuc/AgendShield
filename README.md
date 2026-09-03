@@ -57,9 +57,11 @@ All effects are local mocks. No real CRM, email, memory service, LLM API, or ext
 
 ## Paper-aligned WebAgent scenario
 
-The dashboard protects a local WebArena-style Web task agent, rather than a general-purpose agent that claims to do everything. A user describes the task in natural language; an online model, configured and connection-tested by the user, can only select a fixed environment and route. The agent can read local page fixtures and submit broker-protected actions in six environments corresponding to the paper's evaluation settings: Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM.
+The dashboard protects a local WebArena-style Web task agent, rather than a general-purpose agent that claims to do everything. A user describes the task in natural language; an online model, configured and connection-tested by the user, can only produce environment, action, query, budget, and quantity fields in a fixed JSON schema. The agent can read local Web environments and submit broker-protected actions across the six environment categories used in the paper: Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM.
 
-This is not a reproduction of WebArena, AWM, or real website automation: it never signs in to or operates a live site, does not use the paper's trained task agent, and makes no benchmark claim. It provides an executable, auditable “web read → controlled action → ShieldAgent verification” trajectory. The SuiteCRM fixture contains direct identifiers to demonstrate GDPR aggregation repair and re-verification.
+Shopping is the fully implemented primary environment. It includes six realistic products, Chinese-language search, budget filtering, rating-based selection, product-detail HTML, an accessibility tree, a stateful cart, and local simulated orders. The example follows “search results → product detail → add to cart,” with every step mediated by the Broker and ShieldAgent. A non-charging local order is created only after explicit confirmation. See the [Shopping scenario guide](docs/shopping_demo.md).
+
+This is not a reproduction of WebArena, AWM, or external e-commerce automation: it never signs in to a live site, connects to real payment, uses the paper's trained task agent, or claims benchmark results. SuiteCRM remains a lightweight environment with synthetic direct identifiers for GDPR aggregation and re-verification; the other four environments are executable lightweight fixtures.
 
 ## Ten-minute visual walkthrough
 
@@ -199,7 +201,7 @@ Results were freshly measured in the local deterministic mock environment:
 
 | Validation item | Actual result |
 | --- | ---: |
-| Automated tests | **121 passed** |
+| Automated tests | **125 passed** |
 | Broker security tests | **20 passed** |
 | Benchmark measured runs | **100** (+ 5 warmups) |
 | Brokered safe effect mean / median / p95 | **14.5311 / 14.4495 / 15.3505 ms** |

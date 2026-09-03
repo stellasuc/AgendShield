@@ -12,7 +12,7 @@ The current workspace copy has no `.git` directory, so `git status` cannot be in
 
 | Area | Audited result |
 | --- | --- |
-| Automated tests | 121 passed |
+| Automated tests | 125 passed |
 | Broker security tests | 20 passed |
 | Performance evidence | 100 measured runs + 5 warmups; 14.5311 ms mean brokered mock path |
 | CLI | policy, demo, run, audit, timeline, transactions, approvals, approve, deny, dashboard |

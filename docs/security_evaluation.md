@@ -8,7 +8,7 @@ Measured locally with Python 3.12.13, deterministic mock backends, loopback HTTP
 
 | Check | Actual result |
 | --- | ---: |
-| Full automated suite | 121 passed |
+| Full automated suite | 125 passed |
 | Focused broker security suite | 20 passed |
 | Performance repetitions | 100 (+ 5 warmups) |
 | Brokered safe path mean / median / p95 | 14.531114 / 14.449521 / 15.350542 ms |

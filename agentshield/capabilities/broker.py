@@ -492,11 +492,24 @@ class CapabilityBroker:
             trust_boundary="external",
             source_trust_level="untrusted_web_environment",
         )
-        def web_page_read(_transaction_id: str, environment: str):
+        def web_page_read(
+            _transaction_id: str,
+            environment: str,
+            page: str = "home",
+            query: str = "",
+            max_price: float | None = None,
+            product_id: str | None = None,
+        ):
             return self.gateway.execute(
                 _transaction_id,
                 "web.page.read",
-                {"environment": environment},
+                {
+                    "environment": environment,
+                    "page": page,
+                    "query": query,
+                    "max_price": max_price,
+                    "product_id": product_id,
+                },
             )[0]
 
         @agentshield_tool(
@@ -511,6 +524,8 @@ class CapabilityBroker:
             action: str,
             recipient: str,
             body: Any,
+            product_id: str | None = None,
+            quantity: int = 1,
         ):
             return self.gateway.execute(
                 _transaction_id,
@@ -520,6 +535,8 @@ class CapabilityBroker:
                     "action": action,
                     "recipient": recipient,
                     "body": body,
+                    "product_id": product_id,
+                    "quantity": quantity,
                 },
             )[0]
 

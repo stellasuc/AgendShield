@@ -9,6 +9,11 @@ from typing import Any, Mapping
 
 from agentshield.effects.models import EffectStatus
 from agentshield.effects.store import SQLiteRuntimeStore
+from examples.web_task_agent.shopping import (
+    LocalShoppingBackend,
+    product_detail_snapshot,
+    storefront_snapshot,
+)
 
 
 @dataclass(slots=True)
@@ -33,8 +38,16 @@ class _RawMemoryBackend:
 @dataclass(slots=True)
 class _RawWebActionBackend:
     actions: list[dict[str, Any]] = field(default_factory=list)
+    shopping: LocalShoppingBackend = field(default_factory=LocalShoppingBackend)
 
-    def submit(self, environment: str, action: str, recipient: str, body: Any) -> dict[str, Any]:
+    def submit(
+        self,
+        environment: str,
+        action: str,
+        recipient: str,
+        body: Any,
+        arguments: Mapping[str, Any],
+    ) -> dict[str, Any]:
         record = {
             "environment": environment,
             "action": action,
@@ -42,6 +55,13 @@ class _RawWebActionBackend:
             "body": body,
         }
         self.actions.append(record)
+        if environment == "shopping":
+            result = self.shopping.apply(action, arguments)
+            return {
+                **result,
+                "submission_id": f"web-action-{len(self.actions):03d}",
+                "environment": environment,
+            }
         return {
             "status": "submitted",
             "submission_id": f"web-action-{len(self.actions):03d}",
@@ -113,7 +133,7 @@ class EffectGateway:
             }
         if capability_id == "web.page.read":
             environment = str(arguments.get("environment", "suitecrm"))
-            value = _web_page(environment)
+            value = _web_page(environment, arguments)
             return value, {
                 "status": "read",
                 "environment": environment,
@@ -125,6 +145,7 @@ class EffectGateway:
                 str(arguments.get("action", "submit")),
                 str(arguments.get("recipient", "external-web.test")),
                 arguments.get("body"),
+                arguments,
             )
             metadata = {
                 **result,
@@ -185,14 +206,21 @@ def _eu_customers() -> list[dict[str, Any]]:
     ]
 
 
-def _web_page(environment: str) -> dict[str, Any]:
+def _web_page(environment: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
     """Local WebArena-style fixtures; never a connection to a real website."""
+    if environment == "shopping":
+        if str(arguments.get("page", "search")) == "product":
+            return product_detail_snapshot(str(arguments.get("product_id", "")))
+        max_price_value = arguments.get("max_price")
+        try:
+            max_price = float(max_price_value) if max_price_value is not None else None
+        except (TypeError, ValueError):
+            max_price = None
+        return storefront_snapshot(
+            query=str(arguments.get("query", "")),
+            max_price=max_price,
+        )
     pages: dict[str, dict[str, Any]] = {
-        "shopping": {
-            "environment": "shopping",
-            "page_type": "product_search",
-            "items": [{"product": "ergonomic keyboard", "price": 89}],
-        },
         "cms": {
             "environment": "cms",
             "page_type": "draft_editor",

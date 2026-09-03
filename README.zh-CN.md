@@ -57,9 +57,11 @@ authorized_repair_children: 1
 
 ## 论文对应的 WebAgent 场景
 
-Dashboard 中的受保护 Agent 是一个本地 WebArena 风格 Web 任务 Agent，而不是泛化的“什么都能做”的助手。用户用自然语言描述任务；在线模型（由用户配置并通过连接测试）只在受限枚举中选择环境与计划。Agent 只能读取本地页面夹具并提交受 Broker 保护的动作，覆盖论文实验中对应的六类环境：购物、CMS、社区、GitLab、地图和 SuiteCRM。
+Dashboard 中的受保护 Agent 是一个本地 WebArena 风格 Web 任务 Agent，而不是泛化的“什么都能做”的助手。用户用自然语言描述任务；在线模型（由用户配置并通过连接测试）只能生成固定 JSON Schema 内的环境、动作、检索词、预算和数量。Agent 只能读取本地 Web 环境并提交受 Broker 保护的动作，覆盖论文实验中对应的六类环境：购物、CMS、社区、GitLab、地图和 SuiteCRM。
 
-这不是 WebArena、AWM 或真实网站自动化的复现：不会登录或操作真实站点，不使用论文训练的 Agent 模型，也不宣称论文基准成绩。该实现的目标是提供一条可运行、可审计的“网页读取 → 受控动作 → ShieldAgent 校验”轨迹；SuiteCRM 夹具会包含直接标识符，用于演示 GDPR 下的聚合修复和重新核验。
+Shopping 是完整实现的主演示环境：包含 6 件真实结构的商品、中文检索、预算过滤、评分排序、商品详情 HTML、accessibility tree、购物车和本地模拟订单。示例任务会依次执行“搜索结果 → 商品详情 → 加入购物车”，每一步经过 Broker 和 ShieldAgent；只有用户明确确认下单时才创建不扣款的本地订单。详见[购物场景说明](docs/shopping_demo.zh-CN.md)。
+
+这不是 WebArena、AWM 或外部电商自动化的复现：不会登录真实站点，不连接真实支付，不使用论文训练的 Agent 模型，也不宣称论文基准成绩。SuiteCRM 轻量环境包含合成直接标识符，用于演示 GDPR 下的聚合修复和重新核验；其余四类环境当前为可执行的轻量夹具。
 
 ## 十分钟可视化体验
 
@@ -199,7 +201,7 @@ AgentShield 实现了论文式 ShieldAgent 运行时控制面：对实际动作�
 
 | 验证项 | 实际结果 |
 | --- | ---: |
-| 自动化测试 | **121 passed** |
+| 自动化测试 | **125 passed** |
 | Broker 安全专项测试 | **20 passed** |
 | 基准实测次数 | **100**（另有 5 次预热） |
 | Broker 安全副作用平均 / 中位数 / p95 | **14.5311 / 14.4495 / 15.3505 ms** |

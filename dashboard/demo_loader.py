@@ -9,7 +9,7 @@ from typing import Any
 
 from agentshield.capabilities.service import BrokerServiceProcess
 from agentshield.observability import SecuritySnapshot, SecurityTimeline
-from agentshield.planning import AgentPlan, ModelConfig, plan_customer_data_task
+from agentshield.planning import AgentPlan, ModelConfig, plan_web_task
 from agentshield.policy.rules import Operator, Predicate
 from agentshield.shield import AgentShield
 from examples.portfolio.demo import (
@@ -257,8 +257,8 @@ def run_demo(
     definition = DEMO_DEFINITIONS[key]
     effective_regulations = regulations or (definition.regulation,)
     effective_prompt = (task_prompt or definition.user_request).strip()
-    model_plan = plan_customer_data_task(effective_prompt, model_config) if model_config else None
-    agent_prompt = (
+    model_plan = plan_web_task(effective_prompt, model_config) if model_config else None
+    agent_prompt = effective_prompt if web_task else (
         "Please use only count statistics; safe aggregate output required."
         if model_plan and model_plan.route == "safe_aggregate"
         else effective_prompt
@@ -275,6 +275,10 @@ def run_demo(
                 prompt=agent_prompt,
                 regulations=effective_regulations,
                 environment=web_environment,
+                task_action=model_plan.task_action if model_plan else "inspect",
+                query=model_plan.query if model_plan else "",
+                max_price=model_plan.max_price if model_plan else None,
+                quantity=model_plan.quantity if model_plan else 1,
                 trajectory_id=definition.run_id,
             )
         elif key == "gdpr":
