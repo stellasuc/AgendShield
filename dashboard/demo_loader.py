@@ -16,7 +16,9 @@ from examples.portfolio.demo import (
     run_gdpr_broker,
     run_idempotency,
     run_pipl_approval,
+    run_web_task_broker,
 )
+from examples.web_task_agent.brokered import infer_environment
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +83,7 @@ class DemoSession:
     task_prompt: str = ""
     regulations: tuple[str, ...] = ()
     model_plan: AgentPlan | None = None
+    web_environment: str | None = None
 
     def refresh(self) -> SecuritySnapshot:
         self.snapshot = SecurityTimeline(self.database).snapshot(
@@ -247,6 +250,7 @@ def run_demo(
     task_prompt: str | None = None,
     regulations: tuple[str, ...] | None = None,
     model_config: ModelConfig | None = None,
+    web_task: bool = False,
 ) -> DemoSession:
     if key not in DEMO_DEFINITIONS:
         raise ValueError(f"Unknown dashboard demo: {key}")
@@ -261,8 +265,19 @@ def run_demo(
     )
     temporary = TemporaryDirectory(prefix=f"agentshield-{key}-dashboard-")
     database = Path(temporary.name) / "runtime.db"
+    web_environment = (
+        model_plan.environment if model_plan else infer_environment(effective_prompt)
+    )
     try:
-        if key == "gdpr":
+        if web_task:
+            result = run_web_task_broker(
+                database,
+                prompt=agent_prompt,
+                regulations=effective_regulations,
+                environment=web_environment,
+                trajectory_id=definition.run_id,
+            )
+        elif key == "gdpr":
             result = run_gdpr_broker(
                 database,
                 prompt=agent_prompt,
@@ -281,6 +296,7 @@ def run_demo(
             task_prompt=effective_prompt,
             regulations=effective_regulations,
             model_plan=model_plan,
+            web_environment=web_environment if web_task else None,
             _temporary_directory=temporary,
         )
     except BaseException:

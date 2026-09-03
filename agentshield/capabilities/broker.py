@@ -181,21 +181,32 @@ class CapabilityBroker:
         if transaction.referenced_data_objects and "data_object_id" not in arguments:
             arguments["data_object_id"] = transaction.referenced_data_objects[0]
         arguments["_transaction_id"] = transaction.transaction_id
+        trusted_policy_metadata: dict[str, Any] = {}
+        if transaction.capability_id == "web.action.submit":
+            # The broker, rather than the agent, derives this fact from the
+            # classified object it is about to release. This permits ordinary
+            # non-personal Web tasks while still forcing a repair for CRM pages
+            # that carry direct identifiers.
+            trusted_policy_metadata["is_minimized"] = not any(
+                session.state.data_objects.get(object_id, None) is not None
+                and session.state.data_objects[object_id].contains_personal_data is True
+                for object_id in transaction.referenced_data_objects
+            )
+        if approved:
+            trusted_policy_metadata.update(
+                {
+                    "has_lawful_basis": True,
+                    "specific_purpose": True,
+                    "strictly_necessary": True,
+                    "protective_measures_confirmed": True,
+                }
+            )
         policy_started = perf_counter()
         try:
             context = session.before_tool_call(
                 transaction.capability_id,
                 arguments,
-                trusted_policy_metadata=(
-                    {
-                        "has_lawful_basis": True,
-                        "specific_purpose": True,
-                        "strictly_necessary": True,
-                        "protective_measures_confirmed": True,
-                    }
-                    if approved
-                    else None
-                ),
+                trusted_policy_metadata=trusted_policy_metadata or None,
             )
         except ToolCallBlocked as exc:
             self.last_metrics["policy_verification_ms"] += (
@@ -476,6 +487,43 @@ class CapabilityBroker:
             return self.gateway.execute(_transaction_id, "customer.read", {"dataset": dataset})[0]
 
         @agentshield_tool(
+            side_effect=False,
+            data_source=True,
+            trust_boundary="external",
+            source_trust_level="untrusted_web_environment",
+        )
+        def web_page_read(_transaction_id: str, environment: str):
+            return self.gateway.execute(
+                _transaction_id,
+                "web.page.read",
+                {"environment": environment},
+            )[0]
+
+        @agentshield_tool(
+            side_effect=True,
+            data_sink=True,
+            trust_boundary="external",
+            source_trust_level="external",
+        )
+        def web_action_submit(
+            _transaction_id: str,
+            environment: str,
+            action: str,
+            recipient: str,
+            body: Any,
+        ):
+            return self.gateway.execute(
+                _transaction_id,
+                "web.action.submit",
+                {
+                    "environment": environment,
+                    "action": action,
+                    "recipient": recipient,
+                    "body": body,
+                },
+            )[0]
+
+        @agentshield_tool(
             side_effect=True,
             data_sink=True,
             trust_boundary="external",
@@ -497,6 +545,23 @@ class CapabilityBroker:
             return self.gateway.execute(_transaction_id, "memory.write", {"data": data})[0]
 
         registry.register(customer_read, name="customer.read", result_object_prefix="customer-records")
+        registry.register(
+            web_page_read,
+            name="web.page.read",
+            result_object_prefix="web-page",
+        )
+        registry.register(
+            web_action_submit,
+            name="web.action.submit",
+            policy_metadata={
+                "has_lawful_basis": True,
+                "purpose_compatible": True,
+                "recipient_disclosed": True,
+                "recipient_notified": True,
+                "is_minimized": False,
+                "cross_border": False,
+            },
+        )
         registry.register(
             email_send,
             name="email.send",

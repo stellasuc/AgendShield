@@ -26,11 +26,14 @@ from dashboard.demo_loader import (
 )
 
 
-AGENT_NAME = "SuiteCRM 客户服务 Web Agent"
+AGENT_NAME = "WebArena 风格 Web Task Agent"
 EXAMPLES = {
-    "退款查询与回复": "客户表示退款未到账。请查询客户资料和订单状态，拟定回复；如需发送邮件，请安全执行。",
-    "投诉升级": "客户投诉服务质量。请查询客户资料，整理问题并准备升级给人工客服。",
-    "敏感信息客服": "客户要求通过邮件确认敏感联系方式。请处理该请求，并在需要时升级人工审批。",
+    "购物站任务": "在购物网站查看商品页面，并提交一项受控的购买后操作。",
+    "内容管理任务": "在 CMS 中查看季度更新草稿，并提交一项受控的发布准备操作。",
+    "社区任务": "在 Reddit 风格社区查看支持帖子，并提交一项受控的跟进操作。",
+    "代码协作任务": "在 GitLab 中查看合并请求，并提交一项受控的代码协作操作。",
+    "地图任务": "在地图服务中查看地点信息，并提交一项受控的路线规划操作。",
+    "CRM 任务": "在 SuiteCRM 中查看客户记录，并提交一项受控的后续处理操作。",
 }
 
 
@@ -185,8 +188,8 @@ def _model_config() -> ModelConfig | None:
 
 def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
     st.markdown(f"## {AGENT_NAME}")
-    st.caption("一个边界明确的客服 Agent：查询客户资料、基于知识处理请求、草拟回复，并在发送或升级前走受控流程。")
-    st.markdown("<div class='agent-card'><div class='agent-tag'>AGENT 能力范围</div><h3>客户服务，不是通用万能助手</h3><p>允许：读取演练 CRM、生成客服回复、受控发送邮件、将敏感或复杂问题升级人工。<br>不允许：任意工具调用、绕过 Broker、直接访问原始后端或擅自扩展业务范围。</p></div>", unsafe_allow_html=True)
+    st.caption("论文式 Web 任务 Agent：根据你的 Prompt 在 WebArena 风格环境中读取页面并提交受控动作；实际环境由模型生成的受限计划选择。")
+    st.markdown("<div class='agent-card'><div class='agent-tag'>AGENT 能力范围</div><h3>受保护的 Web 任务执行，不是通用万能助手</h3><p>支持：购物、CMS、Reddit、GitLab、地图与 SuiteCRM 环境中的页面读取与动作提交。<br>不支持：真实网站登录、未注册工具调用、绕过 Broker、直接访问原始后端或擅自扩展业务范围。</p></div>", unsafe_allow_html=True)
     st.markdown("### 第 1 步：选择要遵守的法律法规")
     regulation_column, rule_column, spacer = st.columns((2.2, 1, 1.8), gap="medium", vertical_alignment="bottom")
     with regulation_column:
@@ -206,16 +209,21 @@ def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
     if ready:
         st.caption("已完成法规解析。点击“查看规则”可查看原子谓词、形式逻辑与执行控制。")
     model_config = _model_config()
-    st.markdown("### 第 3 步：描述你希望 Agent 完成的任务")
+    st.markdown("### 第 3 步：描述你希望 Web Agent 完成的任务")
     selected_example = st.selectbox("任务 Prompt 示例", options=tuple(EXAMPLES), format_func=lambda item: item, label_visibility="collapsed")
     if st.button("填入示例", width="content"):
         st.session_state["task_prompt"] = EXAMPLES[selected_example]
-    prompt = st.text_area("任务 Prompt", key="task_prompt", height=116, placeholder="例如：客户表示退款未到账。请查询客户资料和订单状态，拟定回复；如需发送邮件，请安全执行。", label_visibility="collapsed")
-    st.caption("请勿输入真实个人数据或密钥。演练使用本地合成 CRM 和模拟外部服务。")
+    prompt = st.text_area("任务 Prompt", key="task_prompt", height=116, placeholder="例如：在 GitLab 中查看合并请求，并提交一项受控的代码协作操作。", label_visibility="collapsed")
+    st.caption("请勿输入真实个人数据或密钥。演练使用本地 WebArena 风格页面与模拟外部服务。")
     return ((regulation,) if ready else ()), prompt.strip(), model_config
 
 
 def _result_copy(scenario: str, session: DemoSession) -> tuple[str, str, bool]:
+    if session.web_environment:
+        repaired = session.result.get("repair_transactions", 0)
+        if repaired:
+            return "ShieldAgent 已修复并重新核验 Web 动作", f"{session.web_environment} 环境中的原始数据动作已被最小化处理后再执行。", False
+        return "ShieldAgent 已安全完成 Web 动作", f"已在 {session.web_environment} 环境完成 Broker 受控的网页动作。", False
     waiting = scenario == "pipl" and any(item["status"] == "WAITING_APPROVAL" for item in session.snapshot.transactions)
     if waiting:
         return "敏感操作已暂停，等待人工决定", "系统尚未发送邮件。批准后会重新核验；拒绝则安全终止。", True
@@ -291,7 +299,7 @@ def _render_shielding_plan(session: DemoSession) -> None:
 def _render_result(scenario: str, session: DemoSession) -> None:
     title, text, waiting = _result_copy(scenario, session)
     st.markdown(f"<section class='result{' waiting' if waiting else ''}'><h2>{escape(title)}</h2><p>{escape(text)}</p></section>", unsafe_allow_html=True)
-    if scenario == "pipl" and waiting:
+    if scenario == "pipl" and not session.web_environment and waiting:
         st.markdown("### 需要你的决定")
         approve, deny = st.columns(2)
         if approve.button("批准并重新核验", type="primary", width="stretch"):
@@ -307,13 +315,13 @@ def _render_result(scenario: str, session: DemoSession) -> None:
                 st.rerun()
             except Exception as exc:
                 st.error(f"拒绝失败：{type(exc).__name__}: {exc}")
-    values = (("原始个人数据外发", "0 次"), ("安全汇总外发", f"{session.result.get('aggregate_messages', 0)} 次"), ("发送前重新核验", "通过")) if scenario == "gdpr" else (("人工决定", session.result.get("operator_decision", "等待审批")), ("实际邮件效果", f"{session.result.get('email_messages_after_decision', 0)} 次"), ("策略复核", "已完成" if not waiting else "等待人工决定"))
+    values = (("Web 环境", session.web_environment), ("受控网页动作", f"{session.result.get('web_actions', 0)} 次"), ("ShieldAgent 复核", "已完成")) if session.web_environment else (("原始个人数据外发", "0 次"), ("安全汇总外发", f"{session.result.get('aggregate_messages', 0)} 次"), ("发送前重新核验", "通过")) if scenario == "gdpr" else (("人工决定", session.result.get("operator_decision", "等待审批")), ("实际邮件效果", f"{session.result.get('email_messages_after_decision', 0)} 次"), ("策略复核", "已完成" if not waiting else "等待人工决定"))
     columns = st.columns(3)
     for column, (label, value) in zip(columns, values):
         column.markdown(f"<div class='metric-card'><div class='metric-label'>{escape(label)}</div><div class='metric-value'>{escape(value)}</div></div>", unsafe_allow_html=True)
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · WEB AGENT RUNTIME GUARDRAIL</div><h1>让 SuiteCRM 客户服务 Web Agent 在每个动作前获得保护。</h1><p>任务模型生成动作轨迹；ShieldAgent 检索动作规则电路、赋值原子谓词、执行形式化核验，并在客户资料访问、外部发送、记忆写入与回复释放前实施防护。</p><div class="hero-badge">动作轨迹治理 · 法规规则电路 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · WEB AGENT RUNTIME GUARDRAIL</div><h1>让 Web 任务 Agent 在每个网页动作前获得保护。</h1><p>任务模型在 Shopping、CMS、Reddit、GitLab、Maps 或 SuiteCRM 环境中生成动作轨迹；ShieldAgent 检索动作规则电路、赋值原子谓词、执行形式化核验，并在页面读取、外部提交、记忆写入与响应发布前实施防护。</p><div class="hero-badge">动作轨迹治理 · 法规规则电路 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config = _render_setup()
 scenario = _scenario(regulations[0]) if regulations else "gdpr"
@@ -338,7 +346,7 @@ if run:
     _close_previous()
     try:
         with st.spinner("Agent 正在规划任务，AgentShield 正在加载规则并受控执行…"):
-            session = run_demo(scenario, task_prompt=prompt, regulations=regulations, model_config=model_config)
+            session = run_demo(scenario, task_prompt=prompt, regulations=regulations, model_config=model_config, web_task=True)
         st.session_state["demo_session"] = session
         st.session_state["run_signature"] = signature
         st.rerun()

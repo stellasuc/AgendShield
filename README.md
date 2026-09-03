@@ -55,6 +55,12 @@ authorized_repair_children: 1
 
 All effects are local mocks. No real CRM, email, memory service, LLM API, or external service is contacted.
 
+## Paper-aligned WebAgent scenario
+
+The dashboard protects a local WebArena-style Web task agent, rather than a general-purpose agent that claims to do everything. A user describes the task in natural language; an online model, configured and connection-tested by the user, can only select a fixed environment and route. The agent can read local page fixtures and submit broker-protected actions in six environments corresponding to the paper's evaluation settings: Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM.
+
+This is not a reproduction of WebArena, AWM, or real website automation: it never signs in to or operates a live site, does not use the paper's trained task agent, and makes no benchmark claim. It provides an executable, auditable “web read → controlled action → ShieldAgent verification” trajectory. The SuiteCRM fixture contains direct identifiers to demonstrate GDPR aggregation repair and re-verification.
+
 ## Ten-minute visual walkthrough
 
 ```bash
@@ -193,7 +199,7 @@ Results were freshly measured in the local deterministic mock environment:
 
 | Validation item | Actual result |
 | --- | ---: |
-| Automated tests | **118 passed** |
+| Automated tests | **121 passed** |
 | Broker security tests | **20 passed** |
 | Benchmark measured runs | **100** (+ 5 warmups) |
 | Brokered safe effect mean / median / p95 | **14.5311 / 14.4495 / 15.3505 ms** |

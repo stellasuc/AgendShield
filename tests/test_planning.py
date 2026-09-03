@@ -59,6 +59,7 @@ def test_model_planner_sends_prompt_to_openai_compatible_endpoint(monkeypatch):
     )
 
     assert plan.route == "external_email"
+    assert plan.environment == "suitecrm"
     assert plan.model == "test-model"
     assert captured["url"] == "https://model.example/v1/chat/completions"
     assert captured["authorization"] == "Bearer test-key"
@@ -101,6 +102,30 @@ def test_model_planner_accepts_minimax_reasoning_and_markdown_wrapped_json(monke
 
     assert plan.route == "safe_aggregate"
     assert plan.explanation == "仅发送汇总统计。"
+
+
+def test_model_planner_reads_the_selected_web_environment(monkeypatch):
+    monkeypatch.setattr(
+        "agentshield.planning.urlopen",
+        lambda *_args, **_kwargs: _Response(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"route":"safe_aggregate","environment":"gitlab","explanation":"在代码协作环境中完成受控动作。"}'
+                        }
+                    }
+                ]
+            }
+        ),
+    )
+
+    plan = plan_customer_data_task(
+        "检查合并请求",
+        ModelConfig(api_key="test-key", model="test-model"),
+    )
+
+    assert plan.environment == "gitlab"
 
 
 def test_model_planner_accepts_openai_compatible_content_blocks(monkeypatch):

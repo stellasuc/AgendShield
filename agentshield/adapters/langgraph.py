@@ -602,16 +602,32 @@ class LangGraphAdapter(AgentRuntimeAdapter):
         if len(object_ids) != 1:
             return None
         payload = self._payloads.get(object_ids[0])
-        if not isinstance(payload, (list, tuple)):
+        aggregate = _aggregate_payload(payload)
+        if aggregate is None:
             return None
         replacement = dict(arguments)
-        replacement["body"] = {"eu_customer_count": len(payload)}
+        replacement["body"] = aggregate
         replacement.pop("attachment", None)
         return replacement
 
     def _new_object_id(self, prefix: str) -> str:
         self._objects[prefix] += 1
         return f"{prefix}-{self._objects[prefix]:03d}"
+
+
+def _aggregate_payload(payload: Any) -> dict[str, int] | None:
+    """Return a safe aggregate for records read from a protected backend.
+
+    Web task fixtures wrap customer lists in a page object (``{"records": [...]}``),
+    while the original customer-service agent returns the list itself.  Both are
+    personal-data-bearing sources and must preserve the proposed tool arguments
+    when a repair replaces raw records with a count.
+    """
+    if isinstance(payload, (list, tuple)):
+        return {"eu_customer_count": len(payload)}
+    if isinstance(payload, Mapping) and isinstance(payload.get("records"), (list, tuple)):
+        return {"eu_customer_count": len(payload["records"])}
+    return None
 
 
 class SecuredLangGraphAgent:

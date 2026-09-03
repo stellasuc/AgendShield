@@ -25,6 +25,8 @@ class CapabilityRegistry:
 def default_capabilities() -> tuple[Capability, ...]:
     return (
         Capability("customer.read", False, "LOW", "internal", data_source=True),
+        Capability("web.page.read", False, "MEDIUM", "external", data_source=True),
+        Capability("web.action.submit", True, "HIGH", "external", data_sink=True),
         Capability("email.send", True, "HIGH", "external", data_sink=True),
         Capability(
             "memory.write", True, "HIGH", "internal", data_sink=True, persistent=True

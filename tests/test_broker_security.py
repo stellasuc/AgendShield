@@ -88,6 +88,7 @@ def test_gdpr_raw_transfer_is_repaired_and_raw_pii_never_reaches_gateway(tmp_pat
         "aggregate_messages": 1,
         "memory_entries": 0,
         "released_responses": 0,
+        "web_actions": 0,
     }
 
 
