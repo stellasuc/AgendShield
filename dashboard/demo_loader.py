@@ -119,6 +119,7 @@ class PolicyRequirementView:
 @dataclass(frozen=True, slots=True)
 class PolicyRuleView:
     rule_id: str
+    requirement_ids: tuple[str, ...]
     description: str
     intervention: str
     lifecycle_stages: tuple[str, ...]
@@ -177,6 +178,13 @@ def inspect_policy(regulations: tuple[str, ...]) -> PolicyInspection:
     rules = tuple(
         PolicyRuleView(
             rule_id=rule.rule_id,
+            requirement_ids=tuple(
+                dict.fromkeys(
+                    source.requirement_id
+                    for source in rule.sources
+                    if source.requirement_id
+                )
+            ),
             description=rule.description,
             intervention=rule.intervention.value,
             lifecycle_stages=tuple(sorted(stage.value for stage in rule.lifecycle_stages)),

@@ -54,6 +54,7 @@ st.markdown(
     .agent-card,.policy-ready,.track {border:1px solid #dfe7ef;border-radius:14px;background:#fff;padding:1rem 1.05rem;}.agent-card h3,.track h3 {font-size:1rem;margin:.1rem 0 .4rem;color:#172033;}.agent-card p,.track p {font-size:.9rem;color:#64748b;line-height:1.48;margin:0;}.agent-tag {font-size:.76rem;font-weight:800;color:#08736a;letter-spacing:.08em;}.policy-ready {border-color:#b9d9f8;background:#f5faff;color:#25445f;font-size:.9rem;line-height:1.55;margin:.6rem 0;}
     .result {border-radius:16px;padding:1.15rem 1.3rem;margin:1rem 0;border:1px solid #a7ded3;background:#effbf8;}.result.waiting {border-color:#f5c77e;background:#fff8e9;}.result h2 {font-size:1.3rem;margin:0 0 .35rem;color:#13453e;}.result.waiting h2 {color:#754b00;}.result p {margin:0;color:#4b5e6d;line-height:1.5;}
     .metric-card {border:1px solid #e2e8f0;border-radius:13px;padding:.85rem .95rem;background:#fbfdff;}.metric-label {font-size:.78rem;font-weight:700;color:#64748b;}.metric-value {font-size:1.18rem;font-weight:800;color:#172033;margin-top:.18rem;}
+    .mapping-source{border:1px solid #cfe0f2;border-left:4px solid #3b82f6;border-radius:12px;background:#f7fbff;padding:.85rem 1rem}.mapping-kicker{font-size:.69rem;font-weight:900;letter-spacing:.07em;color:#2563eb;margin-bottom:.3rem}.mapping-title{font-size:.9rem;font-weight:750;color:#1e293b;line-height:1.5}.mapping-meta{font-size:.72rem;color:#64748b;margin-top:.38rem}.mapping-meta a{color:#2563eb;text-decoration:none}.mapping-arrow{text-align:center;color:#64748b;font-size:.73rem;font-weight:800;padding:.55rem 0}
     .store-shell {border:1px solid #dce3ec;border-radius:18px;background:#f8fafc;overflow:hidden;margin:.65rem 0 1rem;box-shadow:0 8px 24px rgba(15,23,42,.06);}.store-top {display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;background:#111827;color:#fff;}.store-brand {font-size:1rem;font-weight:900;letter-spacing:.04em}.store-meta {font-size:.78rem;color:#cbd5e1}.store-search {margin:.9rem 1rem;padding:.68rem .8rem;background:#fff;border:1px solid #d8e0ea;border-radius:10px;color:#475569;font-size:.86rem}.product-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;padding:0 1rem 1rem}.product-card {position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:.9rem;min-height:154px}.product-card.selected {border:2px solid #0f766e;background:#f0fdfa}.product-category {font-size:.7rem;font-weight:800;color:#0f766e;letter-spacing:.08em}.product-title {font-size:.92rem;font-weight:800;color:#172033;margin:.35rem 0;line-height:1.35}.product-desc {font-size:.76rem;color:#64748b;line-height:1.4}.product-bottom {display:flex;justify-content:space-between;align-items:end;margin-top:.65rem}.product-price {font-size:1.05rem;font-weight:900;color:#b45309}.product-rating {font-size:.75rem;color:#64748b}.selected-tag {position:absolute;right:.6rem;top:.55rem;background:#0f766e;color:#fff;border-radius:999px;padding:.16rem .42rem;font-size:.66rem;font-weight:800}.cart-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:.84rem}.order-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:.84rem}.env-note {font-size:.78rem;color:#64748b;padding:0 1rem 1rem}@media(max-width:800px){.product-grid{grid-template-columns:1fr}.store-top{align-items:flex-start;gap:.35rem;flex-direction:column}}
     .execution-board {border:1px solid #dce5ee;border-radius:18px;background:#f8fafc;overflow:hidden;margin:.75rem 0 1rem;box-shadow:0 10px 28px rgba(15,23,42,.06)}
     .execution-status {display:flex;align-items:center;gap:.55rem;padding:.72rem 1rem;border-bottom:1px solid #dce5ee;background:#fff;color:#475569;font-size:.82rem}.execution-status strong{color:#172033}.live-pulse{width:.55rem;height:.55rem;border-radius:50%;background:#10b981;box-shadow:0 0 0 0 rgba(16,185,129,.45);animation:pulse 1.45s infinite}.execution-status.complete .live-pulse{animation:none;box-shadow:none}@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
@@ -79,44 +80,107 @@ def _scenario(regulation: str) -> str:
     return "pipl" if regulation == "PIPL" else "gdpr"
 
 
+INTERVENTION_LABELS = {
+    "AUDIT_ONLY": "记录审计",
+    "REPLAN": "要求重新规划",
+    "REDACT": "自动脱敏",
+    "AGGREGATE": "转换为汇总数据",
+    "REQUIRE_CONSENT": "要求用户同意",
+    "REQUIRE_APPROVAL": "要求人工审批",
+    "PREVENT_MEMORY_WRITE": "禁止写入记忆",
+    "BLOCK": "阻止执行",
+}
+
+LIFECYCLE_LABELS = {
+    "DATA_ACCESS": "读取数据时",
+    "TOOL_CALL": "调用工具时",
+    "EXTERNAL_TRANSFER": "向外部发送时",
+    "RESPONSE_GENERATED": "生成回答时",
+    "MEMORY_WRITE": "写入记忆时",
+    "LOG_WRITE": "写入日志时",
+}
+
+
+def _humanized_intervention(intervention: str) -> str:
+    return INTERVENTION_LABELS.get(intervention, intervention.replace("_", " ").title())
+
+
+def _humanized_stages(stages: tuple[str, ...]) -> str:
+    return "、".join(LIFECYCLE_LABELS.get(stage, stage) for stage in stages)
+
+
 def _render_rule_content(inspection) -> None:
-    st.caption("法规要求与工程控制保持分离。系统将条款转换为可核验的原子谓词和运行时控制。")
-    requirement_tab, rule_tab = st.tabs(("法规要求如何变成控制", "符号化运行时规则"))
-    with requirement_tab:
-        for requirement in inspection.requirements:
-            with st.expander(f"{requirement.requirement_id} · {requirement.article}"):
-                st.markdown("**法规要求摘要**")
-                st.write(requirement.legal_requirement)
-                st.markdown("**工程化解释**")
+    requirement_ids = {item.requirement_id for item in inspection.requirements}
+    linked_rule_ids = {
+        rule.rule_id
+        for rule in inspection.rules
+        if requirement_ids.intersection(rule.requirement_ids)
+    }
+    summary_a, summary_b, summary_c = st.columns(3)
+    summary_a.metric("法规要求", len(inspection.requirements))
+    summary_b.metric("运行时规则", len(inspection.rules))
+    summary_c.metric("映射覆盖", f"{len(linked_rule_ids)}/{len(inspection.rules)}")
+    st.caption("点击任一法规要求，即可沿着“法规条款 → 工程解释 → 符号规则 → 执行控制”查看完整对应关系。")
+
+    for requirement_index, requirement in enumerate(inspection.requirements, 1):
+        matched_rules = [
+            rule
+            for rule in inspection.rules
+            if requirement.requirement_id in rule.requirement_ids
+        ]
+        rule_count = f"{len(matched_rules)} 条运行时规则" if matched_rules else "尚无运行时规则"
+        with st.expander(
+            f"{requirement_index}. {requirement.article} · {rule_count}",
+            expanded=requirement_index == 1,
+        ):
+            st.markdown(
+                f"<div class='mapping-source'><div class='mapping-kicker'>法规要求 · {escape(requirement.requirement_id)}</div>"
+                f"<div class='mapping-title'>{escape(requirement.legal_requirement)}</div>"
+                f"<div class='mapping-meta'>来源：{escape(requirement.article)} · <a href='{escape(requirement.source_url)}' target='_blank'>查看官方条文</a></div></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("<div class='mapping-arrow'>↓　转译为可执行的工程含义</div>", unsafe_allow_html=True)
+            interpretation_column, enforcement_column = st.columns(2, gap="medium")
+            with interpretation_column:
+                st.markdown("**系统需要理解什么**")
                 st.write(requirement.engineering_interpretation)
-                st.markdown("**运行时如何执行**")
+            with enforcement_column:
+                st.markdown("**系统需要采取什么控制**")
                 st.write(requirement.runtime_enforcement)
-                st.caption("生命周期阶段：" + " · ".join(requirement.lifecycle_stages))
-                st.markdown(f"[查看官方来源]({requirement.source_url})")
-    with rule_tab:
-        for rule in inspection.rules:
-            with st.expander(f"{rule.rule_id} · {rule.intervention}"):
-                st.markdown("**规则含义**")
-                st.write(rule.description)
-                st.markdown("**LTL 风格形式逻辑**")
-                st.code(rule.formal_logic, language=None)
-                st.caption("原子谓词在每次行动核验时被赋予 TRUE / FALSE；ALWAYS 表示在相关行动出现时持续约束。")
-                st.dataframe(
-                    [
-                        {
-                            "符号": item.symbol,
-                            "运行时变量": item.source_variable,
-                            "规则中的预期值": item.expected_value,
-                            "角色": item.role,
-                        }
-                        for item in rule.predicates
-                    ],
-                    width="stretch",
-                    hide_index=True,
-                )
-                st.markdown("**对应法规条款**")
-                for article, source_url in zip(rule.source_articles, rule.source_urls):
-                    st.markdown(f"[{article}]({source_url})")
+            st.caption("可能触发的执行阶段：" + _humanized_stages(requirement.lifecycle_stages))
+            st.markdown(
+                f"<div class='mapping-arrow'>↓　拆分并编译为 {len(matched_rules)} 条符号化运行时规则</div>",
+                unsafe_allow_html=True,
+            )
+            if not matched_rules:
+                st.warning("这条法规要求当前没有对应的可执行规则，不能进入安全执行。")
+                continue
+            for rule_index, rule in enumerate(matched_rules, 1):
+                with st.container(border=True):
+                    title_column, control_column = st.columns((3.4, 1.3), vertical_alignment="center")
+                    with title_column:
+                        st.markdown(f"**规则 {rule_index} · `{rule.rule_id}`**")
+                        st.write(rule.description)
+                    with control_column:
+                        st.caption("不满足时")
+                        st.markdown(f"**{_humanized_intervention(rule.intervention)}**")
+                    st.caption("检查时机：" + _humanized_stages(rule.lifecycle_stages))
+                    st.markdown("**机器执行的布尔公式**")
+                    st.code(rule.formal_logic, language=None)
+                    st.dataframe(
+                        [
+                            {
+                                "检查类型": item.role,
+                                "布尔符号": item.symbol,
+                                "运行时证据": item.source_variable,
+                                "必须满足": item.expected_value,
+                            }
+                            for item in rule.predicates
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+            st.caption("执行时，ShieldAgent 会为上述谓词赋予 TRUE / FALSE，并据此决定允许、修复、审批或阻断。")
 
 
 @st.dialog("正在解析法规并编译规则", width="small")
@@ -135,7 +199,7 @@ def _compile_policy_dialog(regulation: str) -> None:
     st.rerun()
 
 
-@st.dialog("已解析的法规规则", width="large")
+@st.dialog("法规要求与运行时控制", width="large")
 def _rule_dialog(inspection) -> None:
     _render_rule_content(inspection)
 

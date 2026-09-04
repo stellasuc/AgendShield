@@ -144,5 +144,22 @@ def test_policy_inspection_keeps_requirement_and_rule_sources():
     assert inspection.rules
     assert all(item.source_url.startswith("https://") for item in inspection.requirements)
     assert all(item.source_urls for item in inspection.rules)
+    assert all(rule.requirement_ids for rule in inspection.rules)
     assert all(rule.formal_logic.startswith("ALWAYS(") for rule in inspection.rules)
     assert all(rule.predicates for rule in inspection.rules)
+    known_requirements = {item.requirement_id for item in inspection.requirements}
+    assert all(set(rule.requirement_ids) <= known_requirements for rule in inspection.rules)
+
+
+def test_policy_inspection_exposes_one_requirement_to_many_rule_mapping():
+    inspection = inspect_policy(("PIPL",))
+
+    purpose_rules = {
+        rule.rule_id
+        for rule in inspection.rules
+        if "PIPL_PURPOSE_AND_MINIMUM_NECESSARY" in rule.requirement_ids
+    }
+    assert purpose_rules == {
+        "PIPL_PURPOSE_LIMITATION_001",
+        "PIPL_DATA_MINIMIZATION_001",
+    }
