@@ -4,7 +4,7 @@
 
 ## 范围与来源
 
-本文基于对本地 25 页论文 `ShieldAgent.pdf` 的完整审阅。论文题为 *SHIELDAGENT: Shielding Agents via Verifiable Safety Policy Reasoning*，发表于 ICLR 2025 Workshop on Foundation Models in the Wild。AgentShield 是独立工程扩展，不使用、不修改，也不声称复现 SHIELDAGENT 官方源代码。
+本文基于对本地 25 页论文 `ShieldAgent.pdf` 的完整审阅。论文题为 *SHIELDAGENT: Shielding Agents via Verifiable Safety Policy Reasoning*，发表于 ICLR 2025 Workshop on Foundation Models in the Wild。AgentShield 的防护层是独立工程实现；法规抽取复用作者开放的 AutoPolicy，任务 Agent 复用 AWM，Web 环境复用 WebArena，三者都固定 revision 且不在 submodule 内修改。
 
 ## 威胁模型
 
@@ -94,13 +94,13 @@ AgentShield 在架构层面借鉴：
 
 本地实现为原创代码。运行时会基于真实 Broker 动作生成规则电路、原子谓词 TRUE/FALSE/UNKNOWN 赋值、确定性 LTL 风格验证和可审计的 Shielding Plan；`ShieldAgentStyleVerifier` 仍是可扩展接口。项目不声称等价于论文中的训练模型、ASPM 训练、马尔可夫逻辑网络或基准结果。
 
-当前演示场景是本地 WebArena 风格的 Web 任务 Agent：Shopping、CMS、Reddit、GitLab、Maps 和 SuiteCRM。其页面读取与动作提交均经由独立 Capability Broker。Shopping 是包含搜索、详情 HTML、AX-tree 风格观察、购物车和模拟订单的完整主场景；SuiteCRM 客户记录用于演示 GDPR 最小化修复；其余为轻量可执行环境。这是与论文评测环境类别对齐的可审计工程场景，并非 WebArena、AWM 或论文实验设置的复现。
+论文场景的主集成现在直接使用固定版本 AWM 与 WebArena。`ShieldedBrowserAgent` 在 AWM `get_action()` 与 WebArena `env.step()` 之间执行规则检索、谓词赋值和校验；不安全动作通过 `last_action_error` 反馈给同一个 AWM 重新规划。原本的本地 WebArena 风格环境仅保留为 ShieldAgent/Broker 的离线测试夹具，不再作为论文复现或用户主场景。
 
 ## 属于 SHIELDAGENT、AgentShield 不作声明的能力
 
-以下属于论文能力，并非 AgentShield 的实现声明：
+以下属于论文完整系统能力，仍不是 AgentShield 的实现声明：
 
-- 从长文档自动提取 LLM 策略与 LTL 规则；
+- 将 AutoPolicy 候选规则无需人工审核地直接激活为可信执行策略；
 - 迭代式模糊性引导规则精炼与语义冗余裁剪；
 - 基于动作的概率电路与训练得到的软规则权重；
 - 马尔可夫逻辑网络推理与相对安全概率阈值；
@@ -133,6 +133,6 @@ AgentShield
 
 AgentShield 将强制执行扩展到用户请求、计划、工具调用与结果、外部传输、记忆写入、日志、同意更新、审批和信任边界响应。数据以对象身份、分类、目的、转换、接收方和来源表示，因此聚合结果可以不再是个人数据，同时不会抹除原始来源的分类。变量到规则索引会在状态差异无法影响规则时跳过校验，而具有副作用或跨信任边界的事件始终被检查。修复会创建新事件和数据对象，记录来源，更新状态，并在发布前重新校验。
 
-当前架构进一步把这套校验用于独立 Capability Broker 内的持久副作用事务，并将每次实际动作的 Shielding Plan 写入审计；但并未引入论文中的概率推理或训练组件。
+当前架构进一步把这套校验用于 AWM BrowserGym 动作的执行前拦截和独立 Capability Broker 内的持久副作用事务，并将每次实际动作的 Shielding Plan 写入审计；但并未引入论文中的概率推理或训练组件。
 
 这是对策略校验模式的独立工程扩展，不声称对所有历史感知 Guardrail 具有创新性，也不修改 SHIELDAGENT 官方代码。

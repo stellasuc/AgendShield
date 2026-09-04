@@ -50,4 +50,4 @@ Every detected payload belongs to one `DataObject`. A COPY preserves source clas
 - Confidence is a deterministic heuristic score, not a calibrated probability.
 - Adversarial obfuscation and multimodal content are outside the current detector scope.
 
-The optional model-classifier level remains an extension point for a later phase; it must preserve provenance and should be evaluated before enforcement use.
+The optional model-classifier level remains a future extension point; it must preserve provenance and should be evaluated before enforcement use.

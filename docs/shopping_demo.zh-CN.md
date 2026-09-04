@@ -1,10 +1,12 @@
-# Shopping WebAgent 完整演示
+# Shopping 测试夹具与 WebArena 主环境
+
+> 本文件描述的是早期本地测试夹具。论文场景的主路径现已切换为开源 AWM + WebArena；该夹具只用于无需 Docker 的 ShieldAgent/Broker 回归测试，不再被称为真实 WebArena 或面向用户的完整购物网站。
 
 [English](shopping_demo.md)
 
-## 为什么实现本地购物站
+## 为什么仍保留本地夹具
 
-SHIELDAGENT 论文使用 AWM WebAgent，并在 Shopping、CMS、Reddit、GitLab、Maps 与 SuiteCRM 六类 WebArena 环境中逐动作评估安全策略。一个完整的作品集演示不能只把“购物”写成标签，因此 AgentShield 提供 Northstar Market 本地购物环境，让搜索、页面观察、商品选择和副作用都能真实运行并留下审计证据。
+Northstar Market 提供确定性商品、购物车和模拟订单，可快速验证 ShieldAgent 的动作编排、Broker 事务、幂等和审计，不需要部署 WebArena 的多个服务。它不参与 AWM/WebArena 主集成。
 
 这里的“真实”指具有真实状态与行为的本地应用，不代表连接商业电商或支付：
 
@@ -58,4 +60,4 @@ SHIELDAGENT 论文使用 AWM WebAgent，并在 Shopping、CMS、Reddit、GitLab�
 
 ## 与论文的准确关系
 
-本演示复现的是论文中的系统关系：WebAgent 观察环境并逐步提出动作，ShieldAgent 作为在线后校验模块逐动作提供保护。它不复现 AWM 模型、WebArena 数据库、屏幕视觉模型、论文的概率电路权重、MLN 推理或论文报告的基准结果。
+该夹具只验证本地安全不变量，不复现论文系统。论文同源集成请参见[AutoPolicy、AWM 与 WebArena 集成](upstream_integration.zh-CN.md)。

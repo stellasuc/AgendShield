@@ -70,7 +70,7 @@ email_messages_after_restart_and_retry: 1
 # 20 passed
 
 .venv/bin/pytest -q
-# 125 passed
+# 141 passed
 ```
 
 The security suite covers reject-before-transaction, raw-transfer repair, repair-child re-verification, memory pre-block and retry, response redaction, unauthorized gateway calls, same-process and restart idempotency, durable waiting approval, scope mismatch, re-verification, denial, audit minimization, crash recovery, authorized resume, provenance hydration, API surface, process separation, and CLI minimization.

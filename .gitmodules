@@ -1,0 +1,9 @@
+[submodule "third_party/AutoPolicy"]
+	path = third_party/AutoPolicy
+	url = https://github.com/BillChan226/AutoPolicy.git
+[submodule "third_party/agent-workflow-memory"]
+	path = third_party/agent-workflow-memory
+	url = https://github.com/zorazrw/agent-workflow-memory.git
+[submodule "third_party/webarena"]
+	path = third_party/webarena
+	url = https://github.com/web-arena-x/webarena.git

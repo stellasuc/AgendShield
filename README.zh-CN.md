@@ -1,231 +1,209 @@
 # AgentShield
 
-[English](README.md)
+**面向 Web Agent 的法规驱动运行时防护 Agent**
 
-**面向 LLM Agent 的生命周期级运行时安全与合规控制**
+本仓库只实现 ShieldAgent 防护层。论文实验中的其他部分直接使用并固定到开源上游：
 
-AgentShield 对工具型 LLM Agent 的敏感能力进行中介，并在数据访问、外部副作用、记忆写入与响应发布的完整生命周期中执行法规感知的安全策略。
+- **AutoPolicy**：法规/平台政策文档解析，结构化政策、自然语言规则与 LTL 候选规则抽取；
+- **Agent Workflow Memory（AWM）**：被保护的 Web 任务 Agent；
+- **WebArena**：Shopping、Shopping Admin、Reddit、GitLab、Map 等真实可部署 Web 环境；
+- **AgentShield**：动作规则电路检索、谓词赋值、形式核验、重新规划、阻断、修复、审批与审计。
 
 ```mermaid
-flowchart TB
-    A["LLM Agent"] -->|"能力请求"| B["Capability Broker"]
-    B --> S["AgentShield Runtime"]
-    S --> P["法规策略"]
-    S --> C["合规状态"]
-    S --> L["数据血缘"]
-    P --> D["策略决策"]
-    C --> D
-    L --> D
-    D -->|"ALLOW / BLOCK / REPAIR / APPROVAL / REPLAN"| G["Effect Gateway"]
-    G --> E["邮件 / 记忆 / 响应"]
-    S <--> DB[("SQLite：事务 / 审批 / 副作用 / 审计")]
+flowchart LR
+    D["法规 PDF / HTML / TXT"] --> AP["AutoPolicy（开源）"]
+    AP --> C["候选政策 / 规则 / LTL"]
+    C --> H["人工来源与可执行性审核"]
+    H --> R["已批准运行时规则"]
+    U["WebArena 任务"] --> A["AWM 任务 Agent（开源）"]
+    A -->|"提出 BrowserGym 动作"| S["AgentShield / ShieldAgent"]
+    R --> S
+    S -->|"ALLOW"| W["WebArena（开源）"]
+    S -->|"REPLAN 反馈"| A
+    S -->|"BLOCK / APPROVAL / REPAIR"| X["阻止或受控干预"]
+    S --> E["载荷最小化审计"]
 ```
 
-参考实现包含真实 LangGraph Agent、独立进程 Capability Broker、GDPR/PIPL 部分技术控制、对象级状态与血缘、持久化审批和副作用幂等。它是一个可审计的安全工程求职项目，而不是法律合规判定器。
+> AgentShield 是安全工程参考实现，不构成法律意见。LLM 抽取结果是候选规则，不会自动取得法律权威或直接进入执行面。
 
-> AgentShield 提供可辅助合规执行的技术控制。它不构成法律意见，不完整编码 GDPR 或 PIPL，也不保证法律合规。
+## 项目边界
 
-## 为什么需要 AgentShield？
+| 组件 | 来源 | 本仓库是否重新实现 | 责任 |
+| --- | --- | :---: | --- |
+| 法规文档解析与规则抽取 | AutoPolicy | 否 | 输出结构化政策、规则、风险分类、来源映射与可选 LTL |
+| Web 任务 Agent | AWM | 否 | 根据 WebArena 观察生成 BrowserGym 动作 |
+| Web 网站与浏览器环境 | WebArena | 否 | 提供可部署网站、任务与环境状态 |
+| 防护 Agent | AgentShield | **是** | 在动作到达 `env.step()` 前核验、反馈、修复或阻断 |
+| Capability Broker | AgentShield | **是** | 保护本地能力、副作用事务、审批、幂等与审计 |
 
-现代 Agent 可以访问数据库、调用 API、发送邮件、持久化记忆和发布响应。一个动作是否安全，不只取决于当前工具调用，还取决于此前取得了什么数据、取得目的、数据来源、发生过哪些转换、数据将去往哪里，以及是否存在限定范围的授权。
+过去的 Northstar Market 和自研 LangGraph Web 任务 Agent 仅保留为快速单元测试夹具，不再代表论文复现场景，也不是面向用户的主执行路径。
 
-AgentShield 组合了**生命周期事件 + 持久化合规状态 + 数据血缘 + 能力中介**。Broker 在受保护副作用发生前记录事务并调用策略运行时；必要时执行修复或审批流程，对生效动作重新校验，最后才允许已授权事务到达 Effect Gateway。
+## 固定的开源版本
 
-## 旗舰演示：阻止原始个人数据外泄
+仓库通过 Git submodule 固定上游，不复制或改写上游源码：
 
-| 未使用 AgentShield | 使用 AgentShield |
-| --- | --- |
-| CRM → 原始客户记录 → 邮件 → 外部合作方 | CRM → PII 检测 → GDPR 规则 → `REPAIR: AGGREGATE` → 重新校验 → Broker 邮件 |
-| **PII 泄露** | **只发送安全统计结果** |
+| 上游 | Revision | 许可证 |
+| --- | --- | --- |
+| AutoPolicy | `7f02c713aa7f2541e2bdd40a47d5ecaf19ec880f` | MIT |
+| Agent Workflow Memory | `8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1` | Apache-2.0 |
+| WebArena | `dce04686a56253aefba7b18a4fa0937cf1dc987b` | Apache-2.0 |
 
-```bash
-agentshield demo gdpr
-```
+运行 `agentshield upstream status` 会同时检查目录、入口文件和 commit；版本漂移时状态为 `NOT_READY`，不会静默使用未经验证的上游。
 
-确定性演示会产生真实 Broker 证据：
+## 法规文档到规则
+
+实现严格跟随论文与开放 AutoPolicy 的数据链：
 
 ```text
-separate_process: true
-raw_backend_exposed_on_agent_surface: false
-raw_pii_messages: 0
-aggregate_messages: 1
-repair_transactions: 1
-authorized_repair_children: 1
+政策文档
+  -> 文本与文档结构抽取
+  -> 结构化政策：definitions / scope / policy_description / reference
+  -> 原子自然语言规则：rule_description / source_policy_idx
+  -> 风险分类与 policy-rule mapping
+  -> 可选 LTL 候选：predicates / description / ltl_formula / rule_type
+  -> AgentShield schema、来源、哈希与关联完整性校验
+  -> REVIEW_REQUIRED
+  -> 人工确认来源、语义、可观察谓词、干预方式
+  -> 运行时规则包
 ```
 
-所有副作用均为本地 Mock；不会连接真实 CRM、邮件、记忆、LLM API 或其他外部服务。
+导入器会拒绝缺少来源、重复 ID、未知 policy-rule 引用、错误 JSON 和过大文件。整个 bundle 会计算 SHA-256，并记录 AutoPolicy revision。候选结果的 `executable` 固定为 `false`；只有经过审核并绑定到可信运行时变量的规则包才能被 ShieldAgent 使用。
 
-## 论文对应的 WebAgent 场景
-
-Dashboard 中的受保护 Agent 是一个本地 WebArena 风格 Web 任务 Agent，而不是泛化的“什么都能做”的助手。用户用自然语言描述任务；在线模型（由用户配置并通过连接测试）只能生成固定 JSON Schema 内的环境、动作、检索词、预算和数量。Agent 只能读取本地 Web 环境并提交受 Broker 保护的动作，覆盖论文实验中对应的六类环境：购物、CMS、社区、GitLab、地图和 SuiteCRM。
-
-Shopping 是完整实现的主演示环境：包含 6 件真实结构的商品、中文检索、预算过滤、评分排序、商品详情 HTML、accessibility tree、购物车和本地模拟订单。示例任务会依次执行“搜索结果 → 商品详情 → 加入购物车”，每一步经过 Broker 和 ShieldAgent；只有用户明确确认下单时才创建不扣款的本地订单。详见[购物场景说明](docs/shopping_demo.zh-CN.md)。
-
-这不是 WebArena、AWM 或外部电商自动化的复现：不会登录真实站点，不连接真实支付，不使用论文训练的 Agent 模型，也不宣称论文基准成绩。SuiteCRM 轻量环境包含合成直接标识符，用于演示 GDPR 下的聚合修复和重新核验；其余四类环境当前为可执行的轻量夹具。
-
-## 十分钟可视化体验
+固定上游存在两个必须透明披露的约束：自然语言政策/规则抽取器当前在源码中固定使用 Claude，LTLRuleExtractor 固定使用 GPT-4o。API Key 只从 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` 环境变量读取，不进入命令参数、Git 或审计日志。
 
 ```bash
-agentshield dashboard
-# 等价命令：streamlit run dashboard/app.py
+# 查看固定上游
+agentshield upstream status
+
+# 按开放 AutoPolicy 运行政策与自然语言规则抽取
+export ANTHROPIC_API_KEY='...'
+agentshield autopolicy extract ./regulation.pdf \
+  --organization 'Example Regulation' \
+  --input-type pdf \
+  --output-dir .agentshield/autopolicy
+
+# 同时运行开放版本中的 GPT-4o LTLRuleExtractor
+export OPENAI_API_KEY='...'
+agentshield autopolicy extract ./regulation.pdf \
+  --organization 'Example Regulation' \
+  --input-type pdf \
+  --extract-ltl
+
+# 对已有输出进行离线校验；不会调用模型
+agentshield autopolicy inspect .agentshield/autopolicy/extraction_YYYYMMDD_HHMMSS
+
+# 导出不可执行的人工审核模板；审核前不会激活为运行时规则
+agentshield autopolicy review-template \
+  .agentshield/autopolicy/extraction_YYYYMMDD_HHMMSS \
+  --output .agentshield/review/example-regulation.yaml
 ```
 
-Streamlit 可视化器为每个场景创建全新的临时 SQLite 数据库，并渲染共享的 `SecurityTimeline` 投影。左侧展示 Web 任务 Agent 的实际动作轨迹；右侧展示 ShieldAgent 为每个动作检索到的规则电路、原子谓词真值、形式化核验和 Shielding Plan。界面还展示载荷安全的生命周期事件、合规状态、数据对象血缘、带法规来源的策略决策、Broker 事务/副作用状态，以及 PIPL 审批控件。Dashboard 调用真实 Broker 审批 API，不解析终端输出，也不维护平行的合规模拟逻辑。
+详见[开源组件与集成说明](docs/upstream_integration.zh-CN.md)。
 
-![AgentShield GDPR 运行时可视化](docs/assets/dashboard-gdpr.jpg)
+## AWM 动作如何被保护
 
-## 三个可重复旗舰演示
+`ShieldedBrowserAgent` 组合原始 AWM Agent，不修改 AWM 源码：
 
-```bash
-agentshield demo gdpr
-agentshield demo pipl
-agentshield demo idempotency
-```
+1. AWM 的 `get_action(observation)` 产生 BrowserGym 高层动作；
+2. AgentShield 解析动作名称、目标、页面证据、任务目的和可能的数据载荷；
+3. ShieldAgent 检索相关动作规则电路并为原子谓词赋值；
+4. 确定性校验返回 `ALLOW / REPLAN / BLOCK / REQUIRE_APPROVAL / REPAIR`；
+5. `ALLOW` 才把动作交给 WebArena；不安全动作永远不会到达 `env.step()`；
+6. `REPLAN` 作为 `last_action_error` 反馈给原 AWM，最多重新规划指定次数；
+7. 仍不安全时返回 BrowserGym 安全终止消息，并写入载荷最小化审计。
 
-| 演示 | 真实行为 | 安全不变量 |
-| --- | --- | --- |
-| GDPR — 防止个人数据外泄 | 原始记录被分类、聚合修复并重新校验 | 原始 PII 邮件 0 封；聚合邮件 1 封 |
-| PIPL — 敏感信息审批 | 传输持久暂停、Broker 重启、限定审批并重新校验 | 审批前邮件 0 封；审批后 1 封 |
-| Agent 重试 / Broker 重启保护 | 重启后再次提交同一个 `effect_id` | 返回 `IDEMPOTENT_REPLAY`；后端只执行 1 次 |
+这比论文开放仓库中只读取轨迹最后一步的事后脚本更适合真实运行时：检查点明确位于 Agent 输出与环境副作用之间。
 
-未显式提供 `--db` 时，每条命令都使用隔离临时数据库。适合录屏的启动脚本位于 [`scripts/`](scripts/)。
+## 运行 AWM + WebArena
 
-## 六项核心安全能力
-
-### 生命周期强制执行
-
-在相应生命周期边界保护已注册工具调用与结果、外部传输、记忆写入和响应发布。
-
-### 合规状态
-
-跨执行过程记录目的、接收方、审批证据和数据对象分类等安全事实。
-
-### 数据血缘
-
-保留源对象、派生对象和转换关系；安全聚合不会抹除原始来源的敏感属性。
-
-### Capability Broker
-
-将受保护 Mock 后端移出 Agent 的正常执行面。参考 Agent 只持有窄接口 `BrokerClient`，不持有原始邮件、记忆或响应后端。
-
-### 策略感知干预
-
-支持 `ALLOW`、`BLOCK`、`REPAIR`、审批和重新规划。修复动作与审批恢复动作都必须再次通过策略校验。
-
-### 持久化副作用安全
-
-在 SQLite 中持久化事务、审批、副作用和审计证据。稳定 `effect_id` 可避免已提交且受支持的副作用在重试或 Broker 重启后重复执行。
-
-## 快速开始
-
-需要 Python 3.11+；下方验证使用 Python 3.12.13 与 LangGraph 1.2.9。
+WebArena 是多站点自托管环境，需要 Docker、站点镜像和 BrowserGym 依赖；本仓库不会用一个假购物页冒充它。
 
 ```bash
-git clone <你的仓库地址>
-cd AgentShield
+git clone --recurse-submodules https://github.com/stellasuc/AgendShield.git
+cd AgendShield
 
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev,dashboard]'
 
+# AWM 使用旧版 LangChain，安装到独立环境；不会修改上游 submodule
+AGENTSHIELD_PYTHON=python3.11 ./scripts/setup_paper_stack.sh
+
+# 按 third_party/webarena/environment_docker/README.md 部署站点后配置 URL
+export SHOPPING='http://...'
+export SHOPPING_ADMIN='http://...'
+export REDDIT='http://...'
+export GITLAB='http://...'
+export MAP='http://...'
+export WIKIPEDIA='http://...'
+export HOMEPAGE='http://...'
+export OPENAI_API_KEY='...'
+
+agentshield webarena status
+agentshield webarena run webarena.0 \
+  --workflow shopping \
+  --model openai/gpt-4o \
+  --regulations GDPR
+
+# 或把用户自己的 Prompt 注入 BrowserGym openended 任务，起始页指向已部署的 WebArena 站点
+agentshield webarena run openended \
+  --workflow shopping \
+  --start-url "$SHOPPING" \
+  --prompt '寻找预算内评分最高的降噪耳机并加入购物车，不要下单。' \
+  --model openai/gpt-4o \
+  --regulations GDPR
+```
+
+CLI 和页面会优先使用 `.venv-awm/bin/python`。AWM 固定版本通过 LangChain `ChatOpenAI` 调用模型。OpenAI 兼容服务可通过其标准环境变量接入，但应先在目标模型上验证 AWM 的动作格式和视觉能力；这与 AutoPolicy 的固定模型约束是两件不同的事。
+
+## ShieldAgent 实现
+
+本仓库实现的防护面包括：
+
+- 动作相关规则电路检索；
+- `TRUE / FALSE / UNKNOWN` 原子谓词赋值；
+- fail-closed 的确定性 LTL 风格核验；
+- Search、Binary-Check、Detect、Formal Verify 的可扩展操作接口；
+- 不安全动作反馈与 AWM 重新规划；
+- 生命周期状态、数据分类和对象级血缘；
+- 外部传输、记忆、日志、响应与副作用前置防护；
+- Broker 进程隔离、持久化审批、修复重验和副作用幂等；
+- 不记录原始动作载荷的审计证据。
+
+当前没有声称复现论文训练得到的 ASPM 软权重、MLN 概率推理、微调验证模型或论文基准成绩。详见 [SHIELDAGENT 技术分析](docs/shieldagent_analysis.zh-CN.md)。
+
+## 本地快速验证
+
+无需部署 WebArena，即可验证我们负责的防护代码和 Broker 不变量：
+
+```bash
+pytest -q
 agentshield demo gdpr
+agentshield demo pipl
+agentshield demo idempotency
 agentshield dashboard
 ```
 
-常用证据命令：
+上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **141 passed**，其中新增测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、AWM 反馈重规划，以及含个人数据的 BrowserGym 动作在环境执行前被阻止。
 
-```bash
-agentshield policy list
-agentshield timeline gdpr-broker-demo --db <runtime.db>
-pytest -q
-python -m evaluation.broker_runtime
-```
+## 支持的审核后规则包
 
-持久化人工审批流程：
+- **GDPR**：处理依据、目的限制、数据最小化、特殊类别候选、保存期限、接收方透明度等部分技术控制；
+- **PIPL**：处理依据、最小必要、保存期限、向其他处理者提供、敏感信息候选、单独同意和跨境证据等部分技术控制。
 
-```bash
-agentshield demo pipl --pause-only --db .agentshield/runtime.db
-agentshield transactions list --db .agentshield/runtime.db
-agentshield approve <transaction_id> --db .agentshield/runtime.db
-# 或：agentshield deny <transaction_id> --db .agentshield/runtime.db
-```
-
-## 运行时事务模型
-
-```text
-CREATED → CHECKING → AUTHORIZED → EXECUTING → SUCCEEDED
-                  ↘ BLOCKED             ↘ FAILED
-                  ↘ WAITING_APPROVAL → CHECKING
-
-重启恢复：EXECUTING → REQUIRE_HUMAN_REVIEW
-修复：不安全父事务 BLOCKED → 派生子事务 CHECKING → AUTHORIZED
-```
-
-`EffectGateway` 会重新读取持久状态，并且只在事务处于 `EXECUTING` 且能力名称匹配时执行。审批只会增加精确范围的证据并使事务回到 `CHECKING`，不会绕过校验直接执行。已完成副作用的重放只返回已保存的安全元数据，不再次调用后端。
-
-这是针对单个 SQLite 存储中已提交副作用的应用层至多一次重放控制，不是分布式“精确一次”交付。为了恢复与重新校验，SQLite 会保存原始参数，因此它是敏感可信存储；审计、时间线、Dashboard 和默认 CLI 视图都会删除载荷字段或仅展示指纹。
-
-## 支持的法规
-
-- **GDPR：**部分可在运行时执行的技术控制，包括处理依据证据、目的限制、数据最小化、特殊类别候选、存储期限和接收方透明度。
-- **PIPL：**部分可在运行时执行的技术控制，包括处理依据证据、最小必要、保存期限、向其他处理者提供、敏感信息候选、单独同意和跨境证据。
-
-规则采用带稳定 ID 与官方来源链接的人工审查 YAML。参见[法规审查矩阵](docs/regulation_review_matrix.zh-CN.md)、[GDPR 支持](docs/gdpr_support.zh-CN.md)与 [PIPL 支持](docs/pipl_support.zh-CN.md)。
-
-## 与 SHIELDAGENT 的关系
-
-AgentShield 实现了论文式 ShieldAgent 运行时控制面：对实际动作检索相关规则电路、为原子谓词赋 TRUE/FALSE/UNKNOWN、执行确定性 LTL 风格核验，并生成可审计的 Shielding Plan。它将该模式扩展为针对 Broker 化 Agent 能力的生命周期级运行时强制执行。它不是官方实现，也没有复现 SHIELDAGENT 的训练模型、学习得到的概率电路权重或评测基准。
-
-| 能力 | SHIELDAGENT 启发的校验 | AgentShield |
-| --- | :---: | :---: |
-| 策略驱动校验 | ✓ | ✓ |
-| 使用相关状态/历史 | ✓ | ✓ |
-| 当前动作校验 | ✓ | ✓ |
-| 动作规则电路与谓词真值 | ✓ | ✓（确定性实现） |
-| Shielding Plan | ✓ | ✓（审计持久化） |
-| 持久化类型化合规状态 | — | ✓ |
-| 对象级数据血缘 | — | ✓ |
-| 异构生命周期钩子 | — | ✓ |
-| 运行时法规选择 | — | ✓ |
-| 记忆/输出强制执行 | — | ✓ |
-| 独立 Capability Broker | — | ✓ |
-| 持久化副作用事务 | — | ✓ |
-| 审批/暂停/恢复 | — | ✓ |
-| 副作用幂等 | — | ✓ |
-
-该对比只包含本地论文审阅与当前仓库能够支持的表述。SHIELDAGENT 确实会使用交互历史。详见 [SHIELDAGENT 分析](docs/shieldagent_analysis.zh-CN.md)。
-
-## 实际验证结果
-
-以下结果均在本地确定性 Mock 环境中重新测量：
-
-| 验证项 | 实际结果 |
-| --- | ---: |
-| 自动化测试 | **125 passed** |
-| Broker 安全专项测试 | **20 passed** |
-| 基准实测次数 | **100**（另有 5 次预热） |
-| Broker 安全副作用平均 / 中位数 / p95 | **14.5311 / 14.4495 / 15.3505 ms** |
-| 新增延迟平均 / 中位数 / p95 | **14.5289 / 14.4476 / 15.3480 ms** |
-
-基准包含本机回环 HTTP、策略计算、SQLite 与 Mock 邮件，不包含 LLM 或远程服务调用，**不是生产延迟或吞吐量声明**。可运行 `python -m evaluation.broker_runtime` 复现；机器可读结果位于 [`evaluation/results/broker_runtime.json`](evaluation/results/broker_runtime.json)。
-
-## 一分钟威胁模型
-
-AgentShield 处理不安全 Agent 决策、个人数据过度传输、不安全记忆持久化、响应泄露、从正常原始能力面绕过、审批范围混淆，以及已提交且受支持副作用的重试/重放。Broker 的价值在于受保护后端由 Agent 进程之外持有，并且 Gateway 要求持久化授权后才能执行。
-
-不在范围内：主机失陷、具有主机权限的任意恶意代码、Broker 访问能力被盗、Broker/数据库篡改、内核或 OS 攻陷、未知的非 Broker 通道、完整防御 Prompt Injection、检测器错误、完整法律解释和未实现法规。进程隔离是能力缩减，不是 OS 沙箱。详见[威胁模型](docs/threat_model.zh-CN.md)。
+这些是人工审核后的工程控制，不宣称完整覆盖法规。参见[法规审查矩阵](docs/regulation_review_matrix.zh-CN.md)、[GDPR 支持](docs/gdpr_support.zh-CN.md)与 [PIPL 支持](docs/pipl_support.zh-CN.md)。
 
 ## 文档
 
+- [开源组件与集成说明](docs/upstream_integration.zh-CN.md)
 - [架构与执行流](docs/architecture.zh-CN.md)
-- [Capability Broker 设计](docs/capability_broker.zh-CN.md)
+- [SHIELDAGENT 技术分析](docs/shieldagent_analysis.zh-CN.md)
+- [Capability Broker](docs/capability_broker.zh-CN.md)
 - [威胁模型](docs/threat_model.zh-CN.md)
 - [安全评估](docs/security_evaluation.zh-CN.md)
 - [面试指南](docs/interview_guide.zh-CN.md)
 - [简历素材](docs/resume_material.zh-CN.md)
-- [演示视频脚本](docs/demo_script.zh-CN.md)
-- [求职作品审计](docs/portfolio_audit.zh-CN.md)
 
 ## 许可证
 
-Apache License 2.0，参见 [`LICENSE`](LICENSE)。
+AgentShield 自有代码使用 Apache License 2.0。三个 submodule 保留各自许可证与版权，详见[第三方声明](THIRD_PARTY_NOTICES.zh-CN.md)。

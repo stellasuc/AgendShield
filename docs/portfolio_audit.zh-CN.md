@@ -6,13 +6,13 @@
 
 **从技术内容看，已经可以公开到 GitHub 并写入简历。** 仓库现在只有一条连贯的工程叙事：LLM Agent 提出类型化能力，独立 Broker 持有受保护副作用，AgentShield 根据生命周期状态和血缘进行校验，持久化授权先于执行。项目没有将自身包装成沙箱或法律合规保证，其声明由可运行演示、自动化测试、持久化证据和本地基准支撑。
 
-当前工作目录没有 `.git`，因此无法检查 `git status`，也尚未建立发布历史。公开前需要在目标仓库中初始化或放入这些文件，并把 Quick Start 中的 `<你的仓库地址>` 替换成真实地址。这是发布操作，不是缺失的产品功能。
+项目已建立 Git 历史并连接公开远程仓库。AutoPolicy、AWM 与 WebArena 以固定 submodule revision 接入；发布检查必须同时验证主仓库和三项上游 gitlink，避免只克隆主仓库后误以为论文同源链路可用。
 
 ## 仓库证据
 
 | 项目 | 审计结果 |
 | --- | --- |
-| 自动化测试 | 125 passed |
+| 自动化测试 | 141 passed |
 | Broker 安全专项测试 | 20 passed |
 | 性能证据 | 100 次测量 + 5 次预热；Broker Mock 路径平均 14.5311 ms |
 | CLI | policy、demo、run、audit、timeline、transactions、approvals、approve、deny、dashboard |

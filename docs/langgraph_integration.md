@@ -61,7 +61,7 @@ The raw generated response is first ingested as a non-released object. The techn
 
 `ainvoke` creates isolated per-run state and executes the synchronous protected invocation in a worker thread. UUID event/correlation/tool-call IDs remain independent. V1 supports sequential or controlled tool execution within one graph run. Parallel `ToolNode` fan-out, distributed state transactions, and nested parallel subgraphs are unsupported.
 
-## Unsupported lifecycle phases
+## Unsupported lifecycle boundaries
 
 - arbitrary internal planning from an already-compiled graph;
 - arbitrary `ToolNode` internals not routed through `ToolRuntimeGateway`;

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from html import escape
+import json
+import os
+from pathlib import Path
 import time
 
 import streamlit as st
@@ -14,6 +17,13 @@ from agentshield.planning import (
     model_provider,
     verify_model_connection,
 )
+from agentshield.integrations.awm_webarena import (
+    AWMWebArenaConfig,
+    AWMWebArenaRunner,
+    awm_runtime_ready,
+    default_awm_python,
+)
+from agentshield.integrations.upstreams import inspect_upstreams
 from dashboard.components.audit_view import render_audit, render_effects
 from dashboard.components.decision_view import render_decision
 from dashboard.components.lineage_view import render_lineage
@@ -24,10 +34,11 @@ from dashboard.demo_loader import (
     resolve_pipl_approval,
     run_demo,
 )
+from examples.web_task_agent.brokered import infer_environment
 from examples.web_task_agent.shopping import storefront_snapshot
 
 
-AGENT_NAME = "WebArena 风格 Web Task Agent"
+AGENT_NAME = "AWM Web Task Agent + ShieldAgent"
 EXAMPLES = {
     "购物站任务（推荐）": "在购物网站中寻找预算不超过 600 元的降噪耳机，选择评分最高的一款加入购物车，不要下单。",
     "内容管理任务": "在 CMS 中查看季度更新草稿，并提交一项受控的发布准备操作。",
@@ -35,6 +46,14 @@ EXAMPLES = {
     "代码协作任务": "在 GitLab 中查看合并请求，并提交一项受控的代码协作操作。",
     "地图任务": "在地图服务中查看地点信息，并提交一项受控的路线规划操作。",
     "CRM 任务": "在 SuiteCRM 中查看客户记录，并提交一项受控的后续处理操作。",
+}
+
+WEB_TARGETS = {
+    "shopping": ("SHOPPING", "shopping"),
+    "cms": ("SHOPPING_ADMIN", "shopping_admin"),
+    "reddit": ("REDDIT", "reddit"),
+    "gitlab": ("GITLAB", "gitlab"),
+    "maps": ("MAP", "map"),
 }
 
 
@@ -74,6 +93,7 @@ def _close_previous() -> None:
     if isinstance(session, DemoSession):
         session.close()
     st.session_state.pop("demo_session", None)
+    st.session_state.pop("upstream_result", None)
 
 
 def _scenario(regulation: str) -> str:
@@ -183,16 +203,16 @@ def _render_rule_content(inspection) -> None:
             st.caption("执行时，ShieldAgent 会为上述谓词赋予 TRUE / FALSE，并据此决定允许、修复、审批或阻断。")
 
 
-@st.dialog("正在解析法规并编译规则", width="small")
+@st.dialog("正在加载审核后的法规规则包", width="small")
 def _compile_policy_dialog(regulation: str) -> None:
-    progress = st.progress(5, text="读取法规映射包…")
+    progress = st.progress(5, text="读取审核后的法规映射包…")
     time.sleep(0.12)
-    progress.progress(35, text="验证法规来源与工程化要求…")
+    progress.progress(35, text="验证来源、要求与规则关联…")
     inspection = inspect_policy((regulation,))
     time.sleep(0.12)
-    progress.progress(75, text="将原子谓词编译为运行时规则…")
+    progress.progress(75, text="加载已批准的原子谓词与运行时规则…")
     time.sleep(0.12)
-    progress.progress(100, text="解析完成")
+    progress.progress(100, text="规则包就绪")
     st.session_state["policy_inspection"] = inspection
     st.session_state["compiled_regulation"] = regulation
     time.sleep(0.35)
@@ -204,10 +224,13 @@ def _rule_dialog(inspection) -> None:
     _render_rule_content(inspection)
 
 
-def _model_config() -> ModelConfig | None:
+def _model_config(execution_backend: str = "fixture") -> ModelConfig | None:
     config: ModelConfig | None = None
     with st.expander("第 2 步：配置在线模型连接（必填）", expanded=True):
-        st.caption("安全执行前，在线模型会根据你的任务 Prompt 生成受限行动计划。未配置 API Key 时不能执行任务。支持主流模型服务商与自定义兼容端点。")
+        if execution_backend == "paper":
+            st.caption("AWM 会在每个 WebArena 步骤调用该模型生成 BrowserGym 动作；动作仍须先通过 ShieldAgent。未配置 API Key 时不能执行。")
+        else:
+            st.caption("本地回归夹具使用该模型生成固定 Schema 行动计划；计划和每个动作都受 AgentShield 限制。")
         provider_id = st.selectbox(
             "模型服务商",
             options=tuple(item.provider_id for item in MODEL_PROVIDERS),
@@ -228,7 +251,7 @@ def _model_config() -> ModelConfig | None:
         if provider.documentation_url:
             st.markdown(f"[查看 {provider.label} 官方配置说明]({provider.documentation_url})")
         st.caption("Key 仅保留在当前浏览器会话中，不写入文件、数据库或审计日志。")
-        st.caption("点击“安全执行”后，任务 Prompt 与受限能力说明将发送至该端点；模型输出的计划会再由 AgentShield 依据法规逐项核验。")
+        st.caption("点击“安全执行”后，任务 Prompt 与 Agent 能力说明将发送至该端点；模型输出不能绕过 ShieldAgent。")
         if api_key and model.strip():
             try:
                 config = ModelConfig(
@@ -307,13 +330,49 @@ def _render_shopping_environment(environment_state: dict | None = None) -> None:
     )
 
 
-def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
+def _render_stack_selector() -> tuple[str, dict[str, str]]:
+    statuses = inspect_upstreams()
+    with st.expander("开源组件与运行模式", expanded=True):
+        columns = st.columns(3)
+        for column, status in zip(columns, statuses):
+            label = "已固定" if status.ready else "未就绪"
+            column.metric(status.project.display_name, label)
+            column.caption(f"{status.project.license} · {status.detail}")
+        mode = st.radio(
+            "执行后端",
+            options=("paper", "fixture"),
+            format_func=lambda value: (
+                "论文同源：AWM + 开源 WebArena（推荐）"
+                if value == "paper"
+                else "ShieldAgent 本地回归夹具"
+            ),
+            horizontal=True,
+            key="execution_backend",
+        )
+        if mode == "paper":
+            st.caption("AWM 和 WebArena 均来自固定 submodule；本仓库只在两者之间实现 ShieldAgent 执行前防护。")
+            with st.expander("WebArena 站点地址", expanded=False):
+                st.caption("先按官方 WebArena 文档部署站点。地址只保存在当前 Streamlit 会话，不写入 Git 或审计。")
+                urls = {
+                    variable: st.text_input(
+                        variable,
+                        value=os.environ.get(variable, ""),
+                        placeholder="http://已部署的-webarena-站点",
+                        key=f"webarena_url_{variable.lower()}",
+                    ).strip()
+                    for variable in ("SHOPPING", "SHOPPING_ADMIN", "REDDIT", "GITLAB", "MAP")
+                }
+        else:
+            urls = {}
+            st.warning("本地回归夹具只用于验证 ShieldAgent/Broker，不是 AWM，也不是 WebArena。")
+    return mode, urls
+
+
+def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None, str, dict[str, str]]:
     st.markdown(f"## {AGENT_NAME}")
-    st.caption("论文式 Web 任务 Agent：根据你的 Prompt 在 WebArena 风格环境中读取页面并提交受控动作；实际环境由模型生成的受限计划选择。")
-    st.markdown("<div class='agent-card'><div class='agent-tag'>AGENT 能力范围</div><h3>受保护的 Web 任务执行，不是通用万能助手</h3><p>支持：购物、CMS、Reddit、GitLab、地图与 SuiteCRM 环境中的页面读取与动作提交。<br>不支持：真实网站登录、未注册工具调用、绕过 Broker、直接访问原始后端或擅自扩展业务范围。</p></div>", unsafe_allow_html=True)
-    with st.expander("查看完整 Shopping 演示环境", expanded=False):
-        st.caption("这是本地可变状态的购物站，不是静态截图。执行任务后，搜索结果、Agent 选择、购物车和模拟订单会按实际结果更新。")
-        _render_shopping_environment()
+    st.caption("用户提供 Prompt；原始 AWM 在已部署的开源 WebArena 站点生成 BrowserGym 动作；ShieldAgent 在每个动作进入环境之前核验。")
+    st.markdown("<div class='agent-card'><div class='agent-tag'>项目边界</div><h3>任务 Agent 与网站来自开源上游，本项目只实现防护 Agent</h3><p>AutoPolicy：法规解析与候选规则抽取；AWM：被保护任务 Agent；WebArena：网站与浏览器环境；AgentShield：动作规则电路、谓词赋值、形式核验、反馈重规划与阻断。</p></div>", unsafe_allow_html=True)
+    execution_backend, webarena_urls = _render_stack_selector()
     st.markdown("### 第 1 步：选择要遵守的法律法规")
     regulation_column, rule_column, spacer = st.columns((2.2, 1, 1.8), gap="medium", vertical_alignment="bottom")
     with regulation_column:
@@ -331,15 +390,49 @@ def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None]:
     if regulation in {"GDPR", "PIPL"} and not ready:
         _compile_policy_dialog(regulation)
     if ready:
-        st.caption("已完成法规解析。点击“查看规则”可查看原子谓词、形式逻辑与执行控制。")
-    model_config = _model_config()
+        st.caption("已加载审核后的法规规则包。点击“查看规则”可查看来源、原子谓词、形式逻辑与执行控制；AutoPolicy 的 LLM 抽取候选不会在未审核时直接激活。")
+    model_config = _model_config(execution_backend)
     st.markdown("### 第 3 步：描述你希望 Web Agent 完成的任务")
     selected_example = st.selectbox("任务 Prompt 示例", options=tuple(EXAMPLES), format_func=lambda item: item, label_visibility="collapsed")
     if st.button("填入示例", width="content"):
         st.session_state["task_prompt"] = EXAMPLES[selected_example]
     prompt = st.text_area("任务 Prompt", key="task_prompt", height=116, placeholder="例如：在 GitLab 中查看合并请求，并提交一项受控的代码协作操作。", label_visibility="collapsed")
-    st.caption("请勿输入真实个人数据或密钥。演练使用本地 WebArena 风格页面与模拟外部服务。")
-    return ((regulation,) if ready else ()), prompt.strip(), model_config
+    st.caption("请勿输入真实个人数据或密钥。论文同源模式会把 Prompt 作为 BrowserGym openended goal，起始页限定到对应 WebArena 站点。")
+    return ((regulation,) if ready else ()), prompt.strip(), model_config, execution_backend, webarena_urls
+
+
+def _paper_target(prompt: str, urls: dict[str, str]) -> tuple[str, str, str] | None:
+    environment = infer_environment(prompt)
+    target = WEB_TARGETS.get(environment)
+    if target is None:
+        return None
+    variable, workflow = target
+    url = urls.get(variable, "").strip()
+    return environment, workflow, url
+
+
+def _paper_pairs(result: dict[str, object]) -> list[dict[str, str]]:
+    trace_path = Path(str(result.get("shield_trace_path", "")))
+    if not trace_path.is_file():
+        return []
+    pairs = []
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        decision = str(item.get("decision", "BLOCK"))
+        names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
+        state = "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
+        pairs.append({
+            "agent_title": f"AWM 提议：{names}",
+            "agent_detail": f"动作指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
+            "shield_title": f"ShieldAgent：{decision}",
+            "shield_detail": str(item.get("explanation") or "已完成规则电路核验"),
+            "state": state,
+            "return_label": "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划",
+        })
+    return pairs
 
 
 def _result_copy(scenario: str, session: DemoSession) -> tuple[str, str, bool]:
@@ -641,26 +734,48 @@ def _render_result(scenario: str, session: DemoSession) -> None:
             st.warning(session.result["scope_guard"])
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · WEB AGENT RUNTIME GUARDRAIL</div><h1>让 Web 任务 Agent 在每个网页动作前获得保护。</h1><p>任务模型在 Shopping、CMS、Reddit、GitLab、Maps 或 SuiteCRM 环境中生成动作轨迹；ShieldAgent 检索动作规则电路、赋值原子谓词、执行形式化核验，并在页面读取、外部提交、记忆写入与响应发布前实施防护。</p><div class="hero-badge">动作轨迹治理 · 法规规则电路 · 真实 Broker 执行</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · AWM · WEBARENA</div><h1>让开源 Web 任务 Agent 在每个动作前获得保护。</h1><p>AWM 负责根据用户 Prompt 生成 BrowserGym 动作，WebArena 提供真实开源网站环境；本项目实现的 ShieldAgent 在动作进入环境前检索规则电路、赋值原子谓词、形式核验，并对不安全动作反馈重规划或阻断。</p><div class="hero-badge">开源任务 Agent · 开源 Web 环境 · 自研防护 Agent</div></section>""", unsafe_allow_html=True)
 
-regulations, prompt, model_config = _render_setup()
+regulations, prompt, model_config, execution_backend, webarena_urls = _render_setup()
 scenario = _scenario(regulations[0]) if regulations else "gdpr"
-signature = (regulations, prompt, bool(model_config), model_config.model if model_config else "", model_config.base_url if model_config else "")
+paper_target = _paper_target(prompt, webarena_urls) if prompt else None
+awm_python = default_awm_python()
+browsergym_ready = awm_runtime_ready(awm_python)
+paper_ready = bool(
+    execution_backend == "paper"
+    and paper_target
+    and paper_target[2]
+    and browsergym_ready
+    and model_config
+    and model_config.protocol == "openai"
+)
+signature = (regulations, prompt, execution_backend, tuple(sorted(webarena_urls.items())), bool(model_config), model_config.model if model_config else "", model_config.base_url if model_config else "")
 if st.session_state.get("run_signature") not in (None, signature):
     _close_previous()
 
 run_column, hint_column = st.columns((1.35, 3.65), vertical_alignment="center")
 with run_column:
-    run = st.button("安全执行", type="primary", width="stretch", disabled=not (prompt and regulations and model_config))
+    ready_to_run = bool(prompt and regulations and model_config) and (
+        execution_backend == "fixture" or paper_ready
+    )
+    run = st.button("安全执行", type="primary", width="stretch", disabled=not ready_to_run)
 with hint_column:
     if not regulations:
-        st.caption("请先完成第 1 步：选择法规。系统会自动解析并编译对应的运行时规则。")
+        st.caption("请先完成第 1 步：选择法规。系统会加载已完成 AutoPolicy 候选抽取和人工审核的运行时规则包。")
     elif not model_config:
         st.caption("请完成第 2 步：填写 API Key、模型名称和 API 地址。配置完成后才能在线安全执行。")
     elif not prompt:
         st.caption("请完成第 3 步：输入或填入一段任务 Prompt。")
+    elif execution_backend == "paper" and not browsergym_ready:
+        st.caption("AWM 隔离环境尚未安装：请运行 scripts/setup_paper_stack.sh。")
+    elif execution_backend == "paper" and model_config.protocol != "openai":
+        st.caption("固定版本 AWM 使用 ChatOpenAI 接口；请选择 OpenAI 或 OpenAI 兼容服务（包括 MiniMax 兼容端点）。")
+    elif execution_backend == "paper" and paper_target is None:
+        st.caption("当前 Prompt 没有映射到 Shopping、CMS、Reddit、GitLab 或 Maps WebArena 场景。")
+    elif execution_backend == "paper" and not paper_target[2]:
+        st.caption(f"请在“WebArena 站点地址”中配置 {WEB_TARGETS[paper_target[0]][0]}。")
     else:
-        st.caption("已满足执行条件：在线模型先生成受限行动计划，再由 AgentShield Broker 按所选法规逐项核验。")
+        st.caption("已满足执行条件：AWM 生成动作，ShieldAgent 执行前核验，允许后才进入 WebArena。")
 
 ran_now = False
 run_failed = False
@@ -669,30 +784,76 @@ if run:
     st.markdown("---")
     st.markdown("## 安全执行过程")
     st.caption(f"任务 Prompt：{prompt}")
-    live_flow = _LiveExecutionFlow()
-    try:
-        session = run_demo(
-            scenario,
-            task_prompt=prompt,
-            regulations=regulations,
-            model_config=model_config,
-            web_task=True,
-            progress_callback=live_flow.on_progress,
-        )
-        st.session_state["demo_session"] = session
-        st.session_state["run_signature"] = signature
-        live_flow.finalize(session)
-        ran_now = True
-    except ModelPlanningError as exc:
-        run_failed = True
-        st.error(f"模型计划未通过安全格式核验：{exc}")
-        st.info("请确认模型名称正确；可先点击“测试 API 连接”。系统兼容常见推理标签和 Markdown 包装，但只接受固定 Web 环境、动作、搜索词、预算、数量与说明字段。")
-    except Exception as exc:
-        run_failed = True
-        st.error(f"安全执行未完成：{type(exc).__name__}: {exc}")
+    if execution_backend == "paper":
+        try:
+            environment, workflow, start_url = paper_target
+            status = st.status("正在启动 AWM + WebArena 安全执行…", expanded=True)
+            status.write("1/4 已加载固定版本 AWM 与 WebArena")
+            status.write("2/4 已把用户 Prompt 注入 BrowserGym goal")
+            status.write("3/4 ShieldAgent 已位于 AWM get_action 与 WebArena env.step 之间")
+            model_name = model_config.model
+            if not model_name.startswith("openai/"):
+                model_name = f"openai/{model_name}"
+            process_environment = {
+                **webarena_urls,
+                "OPENAI_API_KEY": model_config.api_key,
+                "OPENAI_API_BASE": model_config.base_url,
+            }
+            result = AWMWebArenaRunner(python_executable=awm_python).run(
+                AWMWebArenaConfig(
+                    task_name="openended",
+                    task_prompt=prompt,
+                    start_url=start_url,
+                    model_name=model_name,
+                    regulations=regulations,
+                    workflow=workflow,
+                    headless=True,
+                ),
+                Path(".agentshield/webarena-ui"),
+                environment=process_environment,
+            )
+            status.write("4/4 WebArena 执行结束，已保存 BrowserGym 轨迹与 ShieldAgent 审计")
+            status.update(label="安全执行已完成", state="complete", expanded=False)
+            st.session_state["upstream_result"] = dict(result)
+            st.session_state["run_signature"] = signature
+            pairs = _paper_pairs(dict(result))
+            st.markdown(_process_board_html(pairs, complete=True), unsafe_allow_html=True)
+            ran_now = True
+        except Exception as exc:
+            run_failed = True
+            st.error(f"AWM / WebArena 安全执行未完成：{type(exc).__name__}: {exc}")
+    else:
+        live_flow = _LiveExecutionFlow()
+        try:
+            session = run_demo(
+                scenario,
+                task_prompt=prompt,
+                regulations=regulations,
+                model_config=model_config,
+                web_task=True,
+                progress_callback=live_flow.on_progress,
+            )
+            st.session_state["demo_session"] = session
+            st.session_state["run_signature"] = signature
+            live_flow.finalize(session)
+            ran_now = True
+        except ModelPlanningError as exc:
+            run_failed = True
+            st.error(f"模型计划未通过安全格式核验：{exc}")
+        except Exception as exc:
+            run_failed = True
+            st.error(f"本地回归执行未完成：{type(exc).__name__}: {exc}")
 
 session = st.session_state.get("demo_session")
-if isinstance(session, DemoSession):
+upstream_result = st.session_state.get("upstream_result")
+if isinstance(upstream_result, dict):
+    if not ran_now:
+        st.markdown("---")
+        st.markdown("## 安全执行过程")
+        st.markdown(_process_board_html(_paper_pairs(upstream_result), complete=True), unsafe_allow_html=True)
+    st.success("真实 AWM + WebArena 运行已完成；每个动作均在进入环境前通过 ShieldAgent。")
+    st.caption(f"BrowserGym 轨迹：{upstream_result.get('experiment_directory')} · ShieldAgent 审计：{upstream_result.get('shield_trace_path')}")
+elif isinstance(session, DemoSession):
     if not ran_now:
         st.markdown("---")
         st.markdown("## 安全执行过程")
@@ -718,8 +879,8 @@ elif not run_failed:
     st.markdown("---")
     st.markdown("### 安全执行会做什么？")
     one, two, three = st.columns(3)
-    for column, title, text in ((one, "1 · 受限规划", "大模型只能为固定能力范围生成行动计划。"), (two, "2 · 逐项核验", "每个数据读取与外部效果都必须通过法规规则。"), (three, "3 · 可审计结果", "系统记录采取的控制与真实执行结果。")):
+    for column, title, text in ((one, "1 · AWM 提议动作", "开源任务 Agent 根据 WebArena 观察生成 BrowserGym 动作。"), (two, "2 · ShieldAgent 前置核验", "动作不经核验不能到达 WebArena env.step。"), (three, "3 · 反馈或执行", "允许则执行；不安全则反馈 AWM 重新规划并保留审计。")):
         column.markdown(f"<div class='agent-card'><div class='agent-tag'>{title}</div><p>{text}</p></div>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("本地演练使用合成数据与模拟效果。AgentShield 提供技术控制，不构成法律意见或完整合规保证。")
+st.caption("论文同源模式使用固定 AWM 与开源 WebArena；本地回归模式仅使用合成夹具。AgentShield 提供技术控制，不构成法律意见或完整合规保证。")

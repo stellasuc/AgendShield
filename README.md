@@ -4,6 +4,8 @@
 
 **Lifecycle-Level Runtime Security & Compliance for LLM Agents**
 
+The paper-aligned path now keeps this repository focused on the ShieldAgent protection layer: policy extraction comes from pinned AutoPolicy, the protected task agent is pinned AWM, and the Web environment is pinned WebArena. See the primary [Chinese project guide](README.zh-CN.md) and [upstream integration design](docs/upstream_integration.zh-CN.md).
+
 AgentShield mediates sensitive capabilities of tool-using LLM agents and enforces regulation-aware security policies across data access, external effects, memory, and responses.
 
 ```mermaid
@@ -57,11 +59,9 @@ All effects are local mocks. No real CRM, email, memory service, LLM API, or ext
 
 ## Paper-aligned WebAgent scenario
 
-The dashboard protects a local WebArena-style Web task agent, rather than a general-purpose agent that claims to do everything. A user describes the task in natural language; an online model, configured and connection-tested by the user, can only produce environment, action, query, budget, and quantity fields in a fixed JSON schema. The agent can read local Web environments and submit broker-protected actions across the six environment categories used in the paper: Shopping, CMS, Reddit, GitLab, Maps, and SuiteCRM.
+The main integration directly composes the unmodified AWM task agent with BrowserGym and the open-source WebArena deployment. `ShieldedBrowserAgent` intercepts every AWM action after `get_action()` and before `env.step()`. An allowed action reaches WebArena; a rejected action is returned to the same AWM instance as structured `last_action_error` feedback for replanning. Repeated failure produces a locally constructed safe-stop action.
 
-Shopping is the fully implemented primary environment. It includes six realistic products, Chinese-language search, budget filtering, rating-based selection, product-detail HTML, an accessibility tree, a stateful cart, and local simulated orders. The example follows “search results → product detail → add to cart,” with every step mediated by the Broker and ShieldAgent. A non-charging local order is created only after explicit confirmation. See the [Shopping scenario guide](docs/shopping_demo.md).
-
-This is not a reproduction of WebArena, AWM, or external e-commerce automation: it never signs in to a live site, connects to real payment, uses the paper's trained task agent, or claims benchmark results. SuiteCRM remains a lightweight environment with synthetic direct identifiers for GDPR aggregation and re-verification; the other four environments are executable lightweight fixtures.
+The earlier Northstar Market and custom LangGraph Web task agent remain only as deterministic unit-test fixtures. They are not presented as WebArena, AWM, or the user-facing paper reproduction.
 
 ## Ten-minute visual walkthrough
 
@@ -121,8 +121,8 @@ Persists transactions, approvals, effects, and audit evidence in SQLite. Stable 
 Python 3.11+ is required; the validation below used Python 3.12.13 and LangGraph 1.2.9.
 
 ```bash
-git clone <your-repository-url>
-cd AgentShield
+git clone --recurse-submodules https://github.com/stellasuc/AgendShield.git
+cd AgendShield
 
 python3.12 -m venv .venv
 source .venv/bin/activate
@@ -130,6 +130,7 @@ pip install -e '.[dev,dashboard]'
 
 agentshield demo gdpr
 agentshield dashboard
+agentshield upstream status
 ```
 
 Useful evidence commands:
@@ -174,7 +175,7 @@ Rules are curated YAML with stable IDs and official source links. See the [regul
 
 ## Relationship to SHIELDAGENT
 
-AgentShield implements a paper-inspired ShieldAgent control plane: it retrieves action-relevant rule circuits for actual runtime events, assigns TRUE/FALSE/UNKNOWN to atomic predicates, performs deterministic LTL-style verification, and generates an auditable shielding plan. It extends that pattern into lifecycle-level runtime enforcement for brokered agent capabilities; it is not an official implementation or a reproduction of SHIELDAGENT's trained models, learned probabilistic circuit weights, or benchmark.
+AgentShield implements a paper-inspired ShieldAgent control plane: it retrieves action-relevant rule circuits for actual runtime events, assigns TRUE/FALSE/UNKNOWN to atomic predicates, performs deterministic LTL-style verification, and generates an auditable shielding plan. AutoPolicy, AWM, and WebArena are pinned external components; the protection layer remains an independent implementation and does not claim reproduction of SHIELDAGENT's trained models, learned probabilistic circuit weights, or benchmark.
 
 | Capability | SHIELDAGENT-inspired verification | AgentShield |
 | --- | :---: | :---: |
@@ -201,7 +202,7 @@ Results were freshly measured in the local deterministic mock environment:
 
 | Validation item | Actual result |
 | --- | ---: |
-| Automated tests | **125 passed** |
+| Automated tests | **141 passed** |
 | Broker security tests | **20 passed** |
 | Benchmark measured runs | **100** (+ 5 warmups) |
 | Brokered safe effect mean / median / p95 | **14.5311 / 14.4495 / 15.3505 ms** |
@@ -218,6 +219,7 @@ It does not defend against a compromised host, arbitrary malicious code with hos
 ## Documentation
 
 - [Architecture and enforcement flow](docs/architecture.md)
+- [AutoPolicy/AWM/WebArena integration (Chinese)](docs/upstream_integration.zh-CN.md)
 - [Capability broker design](docs/capability_broker.md)
 - [Threat model](docs/threat_model.md)
 - [Security evaluation](docs/security_evaluation.md)
@@ -229,4 +231,4 @@ It does not defend against a compromised host, arbitrary malicious code with hos
 
 ## License
 
-Apache License 2.0. See [`LICENSE`](LICENSE).
+AgentShield-owned code uses Apache License 2.0. Pinned submodules retain their own licenses; see the [Chinese third-party notice](THIRD_PARTY_NOTICES.zh-CN.md).

@@ -109,4 +109,4 @@ The service endpoints (`/capabilities`, `/approve`, `/deny`, `/transactions`, `/
 
 A production successor would add authenticated Unix-domain sockets or mTLS, per-principal capability grants, request signing/nonces, database encryption and migrations, provider idempotency, leases/fencing, graceful shutdown, durable lineage, tamper-evident remote audit, rate limits, observability, and explicit operator recovery playbooks.
 
-Those are documented extensions, not claims made by this phase.
+Those are documented extensions, not claims made by the current implementation.

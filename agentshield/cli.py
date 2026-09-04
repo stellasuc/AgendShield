@@ -20,6 +20,64 @@ def build_parser() -> argparse.ArgumentParser:
     policy_commands.add_parser("list", help="List supported regulation packages")
     show = policy_commands.add_parser("show", help="Show selected technical controls")
     show.add_argument("regulation")
+    autopolicy = subcommands.add_parser(
+        "autopolicy", help="Run or inspect the pinned AutoPolicy extraction pipeline"
+    )
+    autopolicy_commands = autopolicy.add_subparsers(
+        dest="autopolicy_command", required=True
+    )
+    autopolicy_inspect = autopolicy_commands.add_parser(
+        "inspect", help="Validate an AutoPolicy extraction directory"
+    )
+    autopolicy_inspect.add_argument("extraction_directory")
+    autopolicy_review = autopolicy_commands.add_parser(
+        "review-template", help="Export a non-executable human review template"
+    )
+    autopolicy_review.add_argument("extraction_directory")
+    autopolicy_review.add_argument("--output", required=True)
+    autopolicy_extract = autopolicy_commands.add_parser(
+        "extract", help="Extract policy candidates with the pinned upstream"
+    )
+    autopolicy_extract.add_argument("document")
+    autopolicy_extract.add_argument("--organization", required=True)
+    autopolicy_extract.add_argument("--input-type", choices=("pdf", "html", "txt"), required=True)
+    autopolicy_extract.add_argument("--output-dir", default=".agentshield/autopolicy")
+    autopolicy_extract.add_argument("--organization-description", default="")
+    autopolicy_extract.add_argument("--target-subject", default="Web task agent")
+    autopolicy_extract.add_argument("--user-request", default="提取约束 Web Agent 行为的明确政策")
+    autopolicy_extract.add_argument("--page-range", default="1-10000")
+    autopolicy_extract.add_argument("--deep-policy", action="store_true")
+    autopolicy_extract.add_argument(
+        "--extract-ltl",
+        action="store_true",
+        help="Also run the upstream GPT-4o LTLRuleExtractor",
+    )
+    autopolicy_extract.add_argument("--exploration-budget", type=int, default=20)
+    upstream = subcommands.add_parser(
+        "upstream", help="Inspect pinned AutoPolicy, AWM, and WebArena checkouts"
+    )
+    upstream.add_subparsers(dest="upstream_command", required=True).add_parser("status")
+    webarena = subcommands.add_parser(
+        "webarena", help="Run the pinned AWM task agent behind ShieldAgent"
+    )
+    webarena_commands = webarena.add_subparsers(dest="webarena_command", required=True)
+    webarena_commands.add_parser("status")
+    webarena_run = webarena_commands.add_parser("run")
+    webarena_run.add_argument("task_name", help="BrowserGym task, for example webarena.0")
+    webarena_run.add_argument("--model", default="openai/gpt-4o")
+    webarena_run.add_argument("--workflow", default="shopping")
+    webarena_run.add_argument("--regulations", nargs="+", default=["GDPR"])
+    webarena_run.add_argument("--max-steps", type=int, default=10)
+    webarena_run.add_argument("--max-replans", type=int, default=2)
+    webarena_run.add_argument("--output-dir", default=".agentshield/webarena")
+    webarena_run.add_argument("--headed", action="store_true")
+    webarena_run.add_argument("--prompt", default="")
+    webarena_run.add_argument("--start-url", default="")
+    webarena_run.add_argument(
+        "--python-executable",
+        default=None,
+        help="Python from the isolated AWM environment (defaults to .venv-awm when present)",
+    )
     demo = subcommands.add_parser("demo", help="Run a local LangGraph runtime demo")
     demo.add_argument(
         "name",
@@ -91,6 +149,81 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"  Source: {requirement.source.official_url}")
         print("Technical compliance assistance only; not legal advice or complete coverage.")
+        return 0
+    if args.command == "upstream" and args.upstream_command == "status":
+        from agentshield.integrations.upstreams import inspect_upstreams
+
+        for status in inspect_upstreams():
+            label = "READY" if status.ready else "NOT_READY"
+            print(
+                f"{status.project.display_name:<30} {label:<10} "
+                f"{status.detail} [{status.project.license}]"
+            )
+        return 0
+    if args.command == "autopolicy":
+        from agentshield.integrations.autopolicy import (
+            AutoPolicyExtractionRequest,
+            AutoPolicyRunner,
+            load_autopolicy_bundle,
+        )
+
+        if args.autopolicy_command == "inspect":
+            bundle = load_autopolicy_bundle(args.extraction_directory)
+        elif args.autopolicy_command == "review-template":
+            from agentshield.integrations.autopolicy import render_review_template
+
+            bundle = load_autopolicy_bundle(args.extraction_directory)
+            output_path = Path(args.output).expanduser()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(render_review_template(bundle), encoding="utf-8")
+            print(f"审核模板已写入 {output_path}")
+            print("该模板不可执行；完成审核后仍需转换为受信任的法规规则包。")
+            return 0
+        else:
+            request = AutoPolicyExtractionRequest(
+                document=args.document,
+                organization=args.organization,
+                input_type=args.input_type,
+                organization_description=args.organization_description,
+                target_subject=args.target_subject,
+                user_request=args.user_request,
+                initial_page_range=args.page_range,
+                deep_policy=args.deep_policy,
+                exploration_budget=args.exploration_budget,
+            )
+            bundle = AutoPolicyRunner().run(
+                request,
+                args.output_dir,
+                extract_ltl=args.extract_ltl,
+            )
+        print(json.dumps(bundle.audit_view(), ensure_ascii=False, indent=2))
+        print("候选规则尚不可执行；必须完成来源、语义和运行时谓词的人工审核。")
+        return 0
+    if args.command == "webarena":
+        from agentshield.integrations.awm_webarena import (
+            AWMWebArenaConfig,
+            AWMWebArenaRunner,
+            inspect_awm_webarena,
+        )
+
+        if args.webarena_command == "status":
+            print(json.dumps(inspect_awm_webarena().audit_view(), ensure_ascii=False, indent=2))
+            return 0
+        config = AWMWebArenaConfig(
+            task_name=args.task_name,
+            model_name=args.model,
+            regulations=tuple(args.regulations),
+            workflow=args.workflow,
+            max_steps=args.max_steps,
+            headless=not args.headed,
+            max_replans=args.max_replans,
+            task_prompt=args.prompt,
+            start_url=args.start_url,
+        )
+        result = AWMWebArenaRunner(python_executable=args.python_executable).run(
+            config, args.output_dir
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "demo":
         if args.name.startswith("langgraph-"):

@@ -4,7 +4,24 @@
 
 ## 运行时结构
 
-当前架构保留与框架无关的策略引擎，并将原始副作用权限移入独立的 Capability Broker 进程。
+面向论文场景的主路径由三个固定开源上游和一个自研防护层组成。AutoPolicy、AWM 和 WebArena 均通过 submodule 引用；本仓库不改写任务 Agent 或网站，只实现 ShieldAgent 与安全运行时。
+
+```mermaid
+flowchart LR
+    P["法规 / 平台政策"] --> AP["AutoPolicy"]
+    AP --> CR["候选规则"]
+    CR --> HR["人工审核与运行时绑定"]
+    HR --> SA["ShieldAgent"]
+    WA["WebArena 观察"] --> AWM["AWM get_action"]
+    AWM -->|"动作提案"| SA
+    SA -->|"ALLOW"| STEP["WebArena env.step"]
+    SA -->|"REPLAN + 规则反馈"| AWM
+    SA -->|"BLOCK / APPROVAL / REPAIR"| STOP["阻止或受控干预"]
+```
+
+`ShieldedBrowserAgent` 是组合适配器：它转发原 AWM 的 observation preprocessor 与 action set，在 `get_action()` 返回后拦截动作。只有 ShieldAgent 允许的动作才能从适配器返回给 BrowserGym，因此检查发生在环境副作用之前。
+
+以下 Capability Broker 路径仍是 ShieldAgent 的本地可重复测试与通用能力防护架构。它保留与框架无关的策略引擎，并将原始副作用权限移入独立 Broker 进程，但不再被描述为 AWM/WebArena 的替代实现。
 
 ```mermaid
 flowchart TD
