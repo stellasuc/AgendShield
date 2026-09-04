@@ -19,7 +19,7 @@ except ImportError:  # Optional dependency: CLI help and core tests remain avail
         pass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ShieldedAWMArgs(_AbstractAgentArgs):
     """Top-level serializable BrowserGym arguments for the composed agent."""
 
@@ -128,9 +128,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.task_name == "openended":
         prompt = os.environ.get("AGENTSHIELD_TASK_PROMPT", "").strip()
         if not prompt:
-            raise SystemExit("AGENTSHIELD_TASK_PROMPT is required for openended execution")
+            raise SystemExit("AGENTSHIELD_TASK_PROMPT is required for BrowserGym openended execution")
         if not args.start_url.startswith(("http://", "https://")):
-            raise SystemExit("--start-url is required for openended execution")
+            raise SystemExit("--start-url is required for BrowserGym openended execution")
         env_args.wait_for_user_message = False
         env_args.task_kwargs = {"start_url": args.start_url, "goal": prompt}
 

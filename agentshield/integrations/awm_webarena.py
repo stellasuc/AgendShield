@@ -39,7 +39,7 @@ def awm_runtime_ready(python_executable: str | None = None) -> bool:
             [
                 executable,
                 "-c",
-                "import browsergym.experiments; import langchain_openai",
+                "import browsergym.experiments; import browsergym.webarena; import langchain_openai",
             ],
             capture_output=True,
             text=True,

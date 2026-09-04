@@ -2,9 +2,12 @@
 # This mirrors third_party/agent-workflow-memory/webarena/requirements.txt while
 # separating an upstream line-break typo (`httpx==0.27.2gymnasium`) into two
 # valid requirements. The upstream submodule remains unmodified.
-browsergym-core>=0.3
-browsergym-experiments>=0.3
-browsergym-webarena
+# AWM's pinned source uses the BrowserGym 0.3 task naming and agent APIs.
+# Newer BrowserGym releases route `webarena.<id>` to a separate WebArenaLite
+# package and are not drop-in compatible with this upstream revision.
+browsergym-core==0.3.5
+browsergym-experiments==0.3.5
+browsergym-webarena==0.3.5
 openai>=1.35.4,<1.36
 langchain>=0.2,<0.3
 langchain_openai>=0.1.10,<0.2

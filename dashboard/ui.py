@@ -370,7 +370,7 @@ def _render_stack_selector() -> tuple[str, dict[str, str]]:
 
 def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None, str, dict[str, str]]:
     st.markdown(f"## {AGENT_NAME}")
-    st.caption("用户提供 Prompt；原始 AWM 在已部署的开源 WebArena 站点生成 BrowserGym 动作；ShieldAgent 在每个动作进入环境之前核验。")
+    st.caption("用户提供 Prompt；原始 AWM 在 BrowserGym 通用环境中操作已部署的开源 WebArena 站点；ShieldAgent 在每个动作进入环境之前核验。自定义 Prompt 模式不等同于官方 WebArena 基准任务。")
     st.markdown("<div class='agent-card'><div class='agent-tag'>项目边界</div><h3>任务 Agent 与网站来自开源上游，本项目只实现防护 Agent</h3><p>AutoPolicy：法规解析与候选规则抽取；AWM：被保护任务 Agent；WebArena：网站与浏览器环境；AgentShield：动作规则电路、谓词赋值、形式核验、反馈重规划与阻断。</p></div>", unsafe_allow_html=True)
     execution_backend, webarena_urls = _render_stack_selector()
     st.markdown("### 第 1 步：选择要遵守的法律法规")

@@ -126,7 +126,7 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev,dashboard]'
 
-# AWM 使用旧版 LangChain，安装到独立环境；不会修改上游 submodule
+# AWM 使用旧版 LangChain 和 BrowserGym 0.3 API，安装到独立环境；不会修改上游 submodule
 AGENTSHIELD_PYTHON=python3.11 ./scripts/setup_paper_stack.sh
 
 # 按 third_party/webarena/environment_docker/README.md 部署站点后配置 URL
@@ -145,7 +145,8 @@ agentshield webarena run webarena.0 \
   --model openai/gpt-4o \
   --regulations GDPR
 
-# 或把用户自己的 Prompt 注入 BrowserGym openended 任务，起始页指向已部署的 WebArena 站点
+# 或把用户自己的 Prompt 注入 BrowserGym 的 openended 任务，起始页指向已部署的 WebArena 站点。
+# 该模式使用真实 WebArena 网站，但不等同于官方 WebArena 基准任务。
 agentshield webarena run openended \
   --workflow shopping \
   --start-url "$SHOPPING" \
@@ -155,6 +156,8 @@ agentshield webarena run openended \
 ```
 
 CLI 和页面会优先使用 `.venv-awm/bin/python`。AWM 固定版本通过 LangChain `ChatOpenAI` 调用模型。OpenAI 兼容服务可通过其标准环境变量接入，但应先在目标模型上验证 AWM 的动作格式和视觉能力；这与 AutoPolicy 的固定模型约束是两件不同的事。
+
+`webarena.<id>` 运行官方 WebArena 基准任务；`openended` 是 BrowserGym 的通用任务环境，允许客户用自己的 Prompt 操作已部署的 WebArena 站点。两者共用 AWM 与 ShieldAgent，但只有前者可以用于官方基准指标对比。
 
 ## ShieldAgent 实现
 

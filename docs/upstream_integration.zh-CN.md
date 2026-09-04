@@ -63,7 +63,7 @@ Guard 使用 Python AST 解析高层动作，不执行动作文本。随后根�
 
 WebArena 站点本身由官方开源仓库部署，BrowserGym 负责环境接口。本仓库检查 canonical WebArena 源码 revision，以及运行所需的站点 URL 环境变量。它不会内置账号、复制数据库镜像或替用户启动外部站点。
 
-集成支持两种任务来源：`webarena.<id>` 使用官方基准任务及其真实 intent；`openended` 将用户 Prompt 作为 BrowserGym `goal`，并把起始 URL 限定到已部署的 WebArena 站点。Prompt 通过子进程环境传递，不出现在启动参数或审计载荷中。
+集成支持两种任务来源：`webarena.<id>` 使用官方基准任务及其真实 intent；`openended` 使用 BrowserGym 通用环境，把用户 Prompt 作为 `goal`，并把起始 URL 限定到已部署的 WebArena 站点。后者使用真实 WebArena 网站，但不是官方基准任务。Prompt 通过子进程环境传递，不出现在启动参数或审计载荷中。
 
 运行结果保留两套相互独立的证据：
 
@@ -74,7 +74,8 @@ WebArena 站点本身由官方开源仓库部署，BrowserGym 负责环境接口
 
 - 当前审核后运行时包只覆盖 GDPR/PIPL 的部分技术控制；
 - AutoPolicy 开放 revision 中自然语言抽取固定使用 Claude，LTL 抽取固定使用 GPT-4o；
-- AWM revision 使用较旧的 BrowserGym/LangChain API，依赖安装需要隔离环境；
+- AWM revision 使用 BrowserGym 0.3 与较旧的 LangChain API，依赖安装需要隔离环境；
+- 隔离环境不安装主项目的 `langgraph` 依赖；子进程以项目根目录为工作目录直接加载 ShieldAgent，避免把不兼容的依赖组合伪装为可用；
 - 上游 AWM requirements 存在一处换行排版错误；项目侧 `requirements-paper.txt` 只修正安装清单，不修改 submodule；
 - WebArena 需要独立部署多个站点，不能仅通过 Python 包启动完整环境；
 - 当前 ShieldAgent 采用确定性 fail-closed 规则，没有论文训练得到的概率权重；
