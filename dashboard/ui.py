@@ -616,11 +616,13 @@ def _process_board_html(pairs: list[dict], *, complete: bool) -> str:
             f"<div class='node-title'>{escape(str(pair['shield_title']))}</div><div class='node-detail'>{escape(str(pair['shield_detail']))}</div></div></div>"
         )
     status = "执行完成 · 每个 Agent 动作都经过 ShieldAgent" if complete else f"安全执行中 · 已输出 {len(pairs)} 步"
+    empty_state = '<div class="board-empty">正在等待 Agent 产生第一个动作…</div>'
+    execution_rows = "".join(rows) if rows else empty_state
     return (
         f"<section class='execution-board'><div class='execution-status{' complete' if complete else ''}'><span class='live-pulse'></span><strong>{status}</strong><span>动作与防护一一对应</span></div>"
         "<div class='lane-heads'><div class='lane-title'><div class='lane-icon'>A</div><div><div class='lane-name'>任务 Agent</div><div class='lane-sub'>左侧 · 正常执行轨迹</div></div></div>"
         "<div class='lane-title right'><div class='lane-icon'>S</div><div><div class='lane-name'>ShieldAgent</div><div class='lane-sub'>右侧 · 实时安全防护</div></div></div></div>"
-        f"<div class='execution-list'>{''.join(rows) if rows else '<div class=\"board-empty\">正在等待 Agent 产生第一个动作…</div>'}</div></section>"
+        f"<div class='execution-list'>{execution_rows}</div></section>"
     )
 
 
