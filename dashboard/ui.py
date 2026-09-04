@@ -80,7 +80,7 @@ def _scenario(regulation: str) -> str:
 
 
 def _render_rule_content(inspection) -> None:
-    st.caption("法规要求与工程控制保持分离。当前系统使用相同原子谓词进行确定性核验；未实现论文中的概率规则电路权重学习。")
+    st.caption("法规要求与工程控制保持分离。系统将条款转换为可核验的原子谓词和运行时控制。")
     requirement_tab, rule_tab = st.tabs(("法规要求如何变成控制", "符号化运行时规则"))
     with requirement_tab:
         for requirement in inspection.requirements:
@@ -514,7 +514,7 @@ def _render_shielding_plan(session: DemoSession) -> None:
         st.caption("当前动作没有产生可展示的 Shielding Plan。")
         return
     st.markdown("#### 各动作的 Shielding Plan")
-    st.caption("由实际运行时审计生成；规则权重尚未训练，使用确定性 fail-closed 形式化核验。")
+    st.caption("以下内容来自本次实际运行时审计，展示每个动作命中的规则、谓词检查与防护结果。")
     for trace_index, (capability, trace) in enumerate(traces, 1):
         with st.expander(f"动作 {trace_index} · {capability} · {trace.get('final_label', 'verified')}"):
             for operation in trace.get("operations", []):
