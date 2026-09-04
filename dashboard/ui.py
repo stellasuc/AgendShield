@@ -71,6 +71,7 @@ st.markdown(
     .hero {padding:1.8rem 2rem;border-radius:20px;color:#fff;background:linear-gradient(120deg,#0d2243,#174d72 56%,#08736a);box-shadow:0 16px 38px rgba(13,34,67,.16);margin-bottom:1.25rem;}
     .eyebrow {color:#9ae9da;font-size:.78rem;font-weight:800;letter-spacing:.12em;}.hero h1 {font-size:2.25rem;margin:.35rem 0 .45rem;line-height:1.1;}.hero p {max-width:800px;margin:0;color:#d9e9f7;font-size:1.03rem;line-height:1.55;}.hero-badge {display:inline-block;margin-top:1rem;padding:.34rem .68rem;border-radius:999px;background:rgba(255,255,255,.16);font-weight:700;font-size:.82rem;}
     .agent-card,.policy-ready,.track {border:1px solid #dfe7ef;border-radius:14px;background:#fff;padding:1rem 1.05rem;}.agent-card h3,.track h3 {font-size:1rem;margin:.1rem 0 .4rem;color:#172033;}.agent-card p,.track p {font-size:.9rem;color:#64748b;line-height:1.48;margin:0;}.agent-tag {font-size:.76rem;font-weight:800;color:#08736a;letter-spacing:.08em;}.policy-ready {border-color:#b9d9f8;background:#f5faff;color:#25445f;font-size:.9rem;line-height:1.55;margin:.6rem 0;}
+    .visualization-intro{border:1px solid #cde5df;border-radius:16px;background:linear-gradient(115deg,#f1fbf8,#f8fbff);padding:1.15rem 1.2rem;margin:.1rem 0 1rem}.visualization-intro h3{font-size:1.1rem;color:#172033;margin:.15rem 0 .35rem}.visualization-intro>p{margin:0;color:#526579;font-size:.9rem;line-height:1.55}.visualization-flow{display:grid;grid-template-columns:1fr 72px 1fr 72px 1fr;align-items:center;gap:.45rem;margin-top:.95rem}.visualization-node{border:1px solid #d7e4ec;border-radius:11px;background:#fff;padding:.7rem .75rem;min-height:76px}.visualization-node strong{display:block;color:#172033;font-size:.86rem;margin-bottom:.18rem}.visualization-node span{color:#64748b;font-size:.75rem;line-height:1.35}.visualization-node.shield{border-color:#9ddbcf;background:#f0fbf8}.visualization-arrow{text-align:center;color:#0f766e;font-weight:900;font-size:.78rem}@media(max-width:800px){.visualization-flow{grid-template-columns:1fr;gap:.3rem}.visualization-arrow{transform:rotate(90deg);height:25px}.visualization-node{min-height:auto}}
     .result {border-radius:16px;padding:1.15rem 1.3rem;margin:1rem 0;border:1px solid #a7ded3;background:#effbf8;}.result.waiting {border-color:#f5c77e;background:#fff8e9;}.result h2 {font-size:1.3rem;margin:0 0 .35rem;color:#13453e;}.result.waiting h2 {color:#754b00;}.result p {margin:0;color:#4b5e6d;line-height:1.5;}
     .metric-card {border:1px solid #e2e8f0;border-radius:13px;padding:.85rem .95rem;background:#fbfdff;}.metric-label {font-size:.78rem;font-weight:700;color:#64748b;}.metric-value {font-size:1.18rem;font-weight:800;color:#172033;margin-top:.18rem;}
     .mapping-source{border:1px solid #cfe0f2;border-left:4px solid #3b82f6;border-radius:12px;background:#f7fbff;padding:.85rem 1rem}.mapping-kicker{font-size:.69rem;font-weight:900;letter-spacing:.07em;color:#2563eb;margin-bottom:.3rem}.mapping-title{font-size:.9rem;font-weight:750;color:#1e293b;line-height:1.5}.mapping-meta{font-size:.72rem;color:#64748b;margin-top:.38rem}.mapping-meta a{color:#2563eb;text-decoration:none}.mapping-arrow{text-align:center;color:#64748b;font-size:.73rem;font-weight:800;padding:.55rem 0}
@@ -332,46 +333,69 @@ def _render_shopping_environment(environment_state: dict | None = None) -> None:
 
 def _render_stack_selector() -> tuple[str, dict[str, str]]:
     statuses = inspect_upstreams()
-    with st.expander("开源组件与运行模式", expanded=True):
-        columns = st.columns(3)
-        for column, status in zip(columns, statuses):
-            label = "已固定" if status.ready else "未就绪"
-            column.metric(status.project.display_name, label)
-            column.caption(f"{status.project.license} · {status.detail}")
+    st.markdown(
+        "<section class='visualization-intro'><div class='agent-tag'>这个工作台展示什么</div>"
+        "<h3>把一次网页 Agent 的安全执行过程变得看得见。</h3>"
+        "<p>输入任务、选择需要遵守的法规后，系统会逐步展示任务 Agent 提议的每个网页动作，"
+        "以及 ShieldAgent 在动作真正执行前如何检查规则、要求修复或阻止风险操作。</p>"
+        "<div class='visualization-flow'>"
+        "<div class='visualization-node'><strong>1. 任务 Agent 提议动作</strong><span>例如搜索商品、读取页面或加入购物车</span></div>"
+        "<div class='visualization-arrow'>→</div>"
+        "<div class='visualization-node shield'><strong>2. ShieldAgent 前置检查</strong><span>将法规规则应用到当前动作和页面证据</span></div>"
+        "<div class='visualization-arrow'>→</div>"
+        "<div class='visualization-node'><strong>3. 放行、修复或阻止</strong><span>结果会同步呈现在下方左右两条轨迹中</span></div>"
+        "</div></section>",
+        unsafe_allow_html=True,
+    )
+    with st.expander("管理员设置：连接演示网站与查看复现信息", expanded=False):
+        st.caption("普通使用者无需理解这些配置。仅在部署 WebArena 演示网站或复现实验时填写。")
         mode = st.radio(
-            "执行后端",
+            "运行环境",
             options=("paper", "fixture"),
             format_func=lambda value: (
-                "论文同源：AWM + 开源 WebArena（推荐）"
+                "在线演示环境（推荐）"
                 if value == "paper"
-                else "ShieldAgent 本地回归夹具"
+                else "开发验证环境（不面向演示）"
             ),
             horizontal=True,
             key="execution_backend",
         )
         if mode == "paper":
-            st.caption("AWM 和 WebArena 均来自固定 submodule；本仓库只在两者之间实现 ShieldAgent 执行前防护。")
-            with st.expander("WebArena 站点地址", expanded=False):
-                st.caption("先按官方 WebArena 文档部署站点。地址只保存在当前 Streamlit 会话，不写入 Git 或审计。")
-                urls = {
-                    variable: st.text_input(
-                        variable,
-                        value=os.environ.get(variable, ""),
-                        placeholder="http://已部署的-webarena-站点",
-                        key=f"webarena_url_{variable.lower()}",
-                    ).strip()
-                    for variable in ("SHOPPING", "SHOPPING_ADMIN", "REDDIT", "GITLAB", "MAP")
-                }
+            st.markdown("#### 连接已部署的演示网站")
+            st.caption("地址仅保存在当前浏览器会话，不会写入 Git 或审计日志。未部署的网站可以留空；当任务需要该网站时，页面会提示填写。")
+            labels = {
+                "SHOPPING": "购物网站",
+                "SHOPPING_ADMIN": "内容管理网站",
+                "REDDIT": "社区网站",
+                "GITLAB": "代码协作网站",
+                "MAP": "地图网站",
+            }
+            urls = {
+                variable: st.text_input(
+                    f"{labels[variable]}（{variable}）",
+                    value=os.environ.get(variable, ""),
+                    placeholder="http://已部署的网站地址",
+                    key=f"webarena_url_{variable.lower()}",
+                ).strip()
+                for variable in labels
+            }
         else:
             urls = {}
-            st.warning("本地回归夹具只用于验证 ShieldAgent/Broker，不是 AWM，也不是 WebArena。")
+            st.warning("开发验证环境只用于验证 ShieldAgent，不使用真实网页任务 Agent 或演示网站。")
+
+        st.markdown("#### 复现组件状态")
+        columns = st.columns(3)
+        for column, status in zip(columns, statuses):
+            label = "版本已锁定" if status.ready else "未就绪"
+            column.metric(status.project.display_name, label)
+            column.caption(f"{status.project.license} · {status.detail}")
+        st.caption("AWM 提供被保护的网页任务 Agent，WebArena 提供开源网页环境；本项目实现并可视化 ShieldAgent 的动作前防护。")
     return mode, urls
 
 
 def _render_setup() -> tuple[tuple[str, ...], str, ModelConfig | None, str, dict[str, str]]:
-    st.markdown(f"## {AGENT_NAME}")
-    st.caption("用户提供 Prompt；原始 AWM 在 BrowserGym 通用环境中操作已部署的开源 WebArena 站点；ShieldAgent 在每个动作进入环境之前核验。自定义 Prompt 模式不等同于官方 WebArena 基准任务。")
-    st.markdown("<div class='agent-card'><div class='agent-tag'>项目边界</div><h3>任务 Agent 与网站来自开源上游，本项目只实现防护 Agent</h3><p>AutoPolicy：法规解析与候选规则抽取；AWM：被保护任务 Agent；WebArena：网站与浏览器环境；AgentShield：动作规则电路、谓词赋值、形式核验、反馈重规划与阻断。</p></div>", unsafe_allow_html=True)
+    st.markdown("## 配置一次安全执行")
+    st.caption("完成以下三项后即可在线执行。执行时，下方会以左右对照的方式展示“任务 Agent 正常轨迹”与“ShieldAgent 防护轨迹”。")
     execution_backend, webarena_urls = _render_stack_selector()
     st.markdown("### 第 1 步：选择要遵守的法律法规")
     regulation_column, rule_column, spacer = st.columns((2.2, 1, 1.8), gap="medium", vertical_alignment="bottom")
@@ -734,7 +758,7 @@ def _render_result(scenario: str, session: DemoSession) -> None:
             st.warning(session.result["scope_guard"])
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">SHIELDAGENT · AWM · WEBARENA</div><h1>让开源 Web 任务 Agent 在每个动作前获得保护。</h1><p>AWM 负责根据用户 Prompt 生成 BrowserGym 动作，WebArena 提供真实开源网站环境；本项目实现的 ShieldAgent 在动作进入环境前检索规则电路、赋值原子谓词、形式核验，并对不安全动作反馈重规划或阻断。</p><div class="hero-badge">开源任务 Agent · 开源 Web 环境 · 自研防护 Agent</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。任务 Agent 每提出一个网页操作，ShieldAgent 都会先检查是否符合规则；页面会清楚展示该动作是被放行、要求调整，还是被阻止。</p><div class="hero-badge">每一个动作，都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config, execution_backend, webarena_urls = _render_setup()
 scenario = _scenario(regulations[0]) if regulations else "gdpr"
@@ -767,13 +791,13 @@ with hint_column:
     elif not prompt:
         st.caption("请完成第 3 步：输入或填入一段任务 Prompt。")
     elif execution_backend == "paper" and not browsergym_ready:
-        st.caption("AWM 隔离环境尚未安装：请运行 scripts/setup_paper_stack.sh。")
+        st.caption("在线演示环境尚未安装。请由管理员完成 AWM 运行环境配置。")
     elif execution_backend == "paper" and model_config.protocol != "openai":
         st.caption("固定版本 AWM 使用 ChatOpenAI 接口；请选择 OpenAI 或 OpenAI 兼容服务（包括 MiniMax 兼容端点）。")
     elif execution_backend == "paper" and paper_target is None:
-        st.caption("当前 Prompt 没有映射到 Shopping、CMS、Reddit、GitLab 或 Maps WebArena 场景。")
+        st.caption("当前任务未能识别为已支持的购物、内容管理、社区、代码协作或地图场景。请使用任务示例，或在 Prompt 中明确网站场景。")
     elif execution_backend == "paper" and not paper_target[2]:
-        st.caption(f"请在“WebArena 站点地址”中配置 {WEB_TARGETS[paper_target[0]][0]}。")
+        st.caption(f"请在“管理员设置：连接演示网站与查看复现信息”中填写 {WEB_TARGETS[paper_target[0]][0]} 的网站地址。")
     else:
         st.caption("已满足执行条件：AWM 生成动作，ShieldAgent 执行前核验，允许后才进入 WebArena。")
 
