@@ -110,3 +110,28 @@ def test_model_cannot_escalate_to_order_without_user_confirmation(tmp_path):
     assert result["task_action"] == "add_to_cart"
     assert result["environment_state"]["order"] is None
     assert "没有明确确认" in result["scope_guard"]
+
+
+def test_web_task_emits_incremental_agent_and_shield_progress():
+    progress = []
+    session = run_demo(
+        "gdpr",
+        task_prompt="在购物网站中查找人体工学键盘。",
+        regulations=("GDPR",),
+        web_task=True,
+        progress_callback=lambda event, payload: progress.append((event, dict(payload))),
+    )
+    try:
+        names = [event for event, _ in progress]
+        assert names[:2] == ["planning_started", "planning_completed"]
+        assert names[-1] == "execution_completed"
+        action_positions = [index for index, name in enumerate(names) if name == "action_requested"]
+        assert action_positions
+        assert all(names[index + 1] == "shield_decided" for index in action_positions)
+        assert any(
+            payload.get("capability") == "response.release"
+            for name, payload in progress
+            if name == "action_requested"
+        )
+    finally:
+        session.close()

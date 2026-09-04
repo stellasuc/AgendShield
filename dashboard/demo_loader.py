@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, Callable, Mapping
 
 from agentshield.capabilities.service import BrokerServiceProcess
 from agentshield.observability import SecuritySnapshot, SecurityTimeline
@@ -251,13 +251,29 @@ def run_demo(
     regulations: tuple[str, ...] | None = None,
     model_config: ModelConfig | None = None,
     web_task: bool = False,
+    progress_callback: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> DemoSession:
     if key not in DEMO_DEFINITIONS:
         raise ValueError(f"Unknown dashboard demo: {key}")
     definition = DEMO_DEFINITIONS[key]
     effective_regulations = regulations or (definition.regulation,)
     effective_prompt = (task_prompt or definition.user_request).strip()
+    if progress_callback is not None:
+        progress_callback(
+            "planning_started",
+            {"prompt": effective_prompt, "regulations": effective_regulations},
+        )
     model_plan = plan_web_task(effective_prompt, model_config) if model_config else None
+    if progress_callback is not None:
+        progress_callback(
+            "planning_completed",
+            {
+                "model": model_plan.model if model_plan else "local-interpreter",
+                "environment": model_plan.environment if model_plan else infer_environment(effective_prompt),
+                "task_action": model_plan.task_action if model_plan else "inspect",
+                "explanation": model_plan.explanation if model_plan else "已生成固定能力范围内的行动计划。",
+            },
+        )
     agent_prompt = effective_prompt if web_task else (
         "Please use only count statistics; safe aggregate output required."
         if model_plan and model_plan.route == "safe_aggregate"
@@ -280,6 +296,7 @@ def run_demo(
                 max_price=model_plan.max_price if model_plan else None,
                 quantity=model_plan.quantity if model_plan else 1,
                 trajectory_id=definition.run_id,
+                progress_callback=progress_callback,
             )
         elif key == "gdpr":
             result = run_gdpr_broker(
@@ -292,7 +309,7 @@ def run_demo(
         else:
             result = run_idempotency(database)
         snapshot = SecurityTimeline(database).snapshot(definition.run_id)
-        return DemoSession(
+        session = DemoSession(
             definition=definition,
             database=database,
             result=result,
@@ -303,6 +320,15 @@ def run_demo(
             web_environment=web_environment if web_task else None,
             _temporary_directory=temporary,
         )
+        if progress_callback is not None:
+            progress_callback(
+                "execution_completed",
+                {
+                    "environment": session.web_environment or "runtime",
+                    "actions": len(result.get("tool_trace", [])),
+                },
+            )
+        return session
     except BaseException:
         temporary.cleanup()
         raise

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import re
-from typing import Any, TypedDict
+from typing import Any, Callable, Mapping, TypedDict
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
@@ -16,6 +16,7 @@ from examples.web_task_agent.shopping import choose_product
 
 
 WEB_ENVIRONMENTS = ("shopping", "cms", "reddit", "gitlab", "maps", "suitecrm")
+ProgressCallback = Callable[[str, Mapping[str, Any]], None]
 
 
 class BrokeredCapabilityError(RuntimeError):
@@ -25,12 +26,22 @@ class BrokeredCapabilityError(RuntimeError):
 
 
 class BrokeredWebRuntime:
-    __slots__ = ("client", "trajectory_id", "tool_trace")
+    __slots__ = ("client", "trajectory_id", "tool_trace", "progress_callback")
 
-    def __init__(self, client: BrokerClient, trajectory_id: str) -> None:
+    def __init__(
+        self,
+        client: BrokerClient,
+        trajectory_id: str,
+        progress_callback: ProgressCallback | None = None,
+    ) -> None:
         self.client = client
         self.trajectory_id = trajectory_id
         self.tool_trace: list[dict[str, Any]] = []
+        self.progress_callback = progress_callback
+
+    def notify(self, event: str, payload: Mapping[str, Any]) -> None:
+        if self.progress_callback is not None:
+            self.progress_callback(event, payload)
 
     def call_tool(self, tool: str, **arguments: Any) -> ToolObservation:
         capability = {
@@ -40,6 +51,11 @@ class BrokeredWebRuntime:
         if capability is None:
             raise KeyError(f"No brokered capability mapping for tool: {tool}")
         object_id = arguments.pop("data_object_id", None)
+        safe_arguments = _safe_trace_arguments(arguments)
+        self.notify(
+            "action_requested",
+            {"tool": tool, "capability": capability, "arguments": safe_arguments},
+        )
         response = self.client.request(
             CapabilityRequest(
                 request_id=str(uuid4()),
@@ -49,17 +65,17 @@ class BrokeredWebRuntime:
                 referenced_data_objects=((str(object_id),) if object_id else ()),
             )
         )
-        self.tool_trace.append(
-            {
-                "tool": tool,
-                "capability": capability,
-                "transaction_id": response.transaction_id,
-                "status": response.status,
-                "decision": response.decision,
-                "disposition": response.disposition,
-                "arguments": _safe_trace_arguments(arguments),
-            }
-        )
+        trace = {
+            "tool": tool,
+            "capability": capability,
+            "transaction_id": response.transaction_id,
+            "status": response.status,
+            "decision": response.decision,
+            "disposition": response.disposition,
+            "arguments": safe_arguments,
+        }
+        self.tool_trace.append(trace)
+        self.notify("shield_decided", trace)
         if response.status != "SUCCEEDED":
             raise BrokeredCapabilityError(response)
         return ToolObservation(response.value, response.data_object_id, response.transaction_id)
@@ -82,15 +98,29 @@ class WebTaskState(TypedDict, total=False):
 class BrokeredWebTaskAgent:
     client: BrokerClient
     trajectory_id: str
+    progress_callback: ProgressCallback | None = None
     runtime: BrokeredWebRuntime = field(init=False)
     graph: Any = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.runtime = BrokeredWebRuntime(self.client, self.trajectory_id)
+        self.runtime = BrokeredWebRuntime(
+            self.client,
+            self.trajectory_id,
+            self.progress_callback,
+        )
         self.graph = _compile(self.runtime)
 
     def invoke(self, inputs: Any, config: Any = None, **kwargs: Any) -> dict[str, Any]:
         output = self.graph.invoke(inputs, config=config, **kwargs)
+        release_arguments = {"purpose": "web_task"}
+        self.runtime.notify(
+            "action_requested",
+            {
+                "tool": "release_response",
+                "capability": "response.release",
+                "arguments": release_arguments,
+            },
+        )
         release = self.client.request(
             CapabilityRequest(
                 trajectory_id=self.trajectory_id,
@@ -98,12 +128,24 @@ class BrokeredWebTaskAgent:
                 arguments={"response": output["response"], "purpose": "web_task"},
             )
         )
+        release_trace = {
+            "tool": "release_response",
+            "capability": "response.release",
+            "transaction_id": release.transaction_id,
+            "status": release.status,
+            "decision": release.decision,
+            "disposition": release.disposition,
+            "arguments": release_arguments,
+        }
+        self.runtime.tool_trace.append(release_trace)
+        self.runtime.notify("shield_decided", release_trace)
         if release.status != "SUCCEEDED":
             raise BrokeredCapabilityError(release)
         return {
             **output,
             "response": release.value,
             "response_transaction_id": release.transaction_id,
+            "tool_trace": list(self.runtime.tool_trace),
         }
 
 
@@ -111,8 +153,13 @@ def build_brokered_web_task_agent(
     client: BrokerClient,
     *,
     trajectory_id: str | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> BrokeredWebTaskAgent:
-    return BrokeredWebTaskAgent(client, trajectory_id or f"web-task-{uuid4().hex[:10]}")
+    return BrokeredWebTaskAgent(
+        client,
+        trajectory_id or f"web-task-{uuid4().hex[:10]}",
+        progress_callback,
+    )
 
 
 def infer_environment(prompt: str) -> str:

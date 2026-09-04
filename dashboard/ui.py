@@ -55,7 +55,12 @@ st.markdown(
     .result {border-radius:16px;padding:1.15rem 1.3rem;margin:1rem 0;border:1px solid #a7ded3;background:#effbf8;}.result.waiting {border-color:#f5c77e;background:#fff8e9;}.result h2 {font-size:1.3rem;margin:0 0 .35rem;color:#13453e;}.result.waiting h2 {color:#754b00;}.result p {margin:0;color:#4b5e6d;line-height:1.5;}
     .metric-card {border:1px solid #e2e8f0;border-radius:13px;padding:.85rem .95rem;background:#fbfdff;}.metric-label {font-size:.78rem;font-weight:700;color:#64748b;}.metric-value {font-size:1.18rem;font-weight:800;color:#172033;margin-top:.18rem;}
     .store-shell {border:1px solid #dce3ec;border-radius:18px;background:#f8fafc;overflow:hidden;margin:.65rem 0 1rem;box-shadow:0 8px 24px rgba(15,23,42,.06);}.store-top {display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;background:#111827;color:#fff;}.store-brand {font-size:1rem;font-weight:900;letter-spacing:.04em}.store-meta {font-size:.78rem;color:#cbd5e1}.store-search {margin:.9rem 1rem;padding:.68rem .8rem;background:#fff;border:1px solid #d8e0ea;border-radius:10px;color:#475569;font-size:.86rem}.product-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;padding:0 1rem 1rem}.product-card {position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:.9rem;min-height:154px}.product-card.selected {border:2px solid #0f766e;background:#f0fdfa}.product-category {font-size:.7rem;font-weight:800;color:#0f766e;letter-spacing:.08em}.product-title {font-size:.92rem;font-weight:800;color:#172033;margin:.35rem 0;line-height:1.35}.product-desc {font-size:.76rem;color:#64748b;line-height:1.4}.product-bottom {display:flex;justify-content:space-between;align-items:end;margin-top:.65rem}.product-price {font-size:1.05rem;font-weight:900;color:#b45309}.product-rating {font-size:.75rem;color:#64748b}.selected-tag {position:absolute;right:.6rem;top:.55rem;background:#0f766e;color:#fff;border-radius:999px;padding:.16rem .42rem;font-size:.66rem;font-weight:800}.cart-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:.84rem}.order-bar {margin:0 1rem 1rem;padding:.75rem .85rem;border-radius:11px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:.84rem}.env-note {font-size:.78rem;color:#64748b;padding:0 1rem 1rem}@media(max-width:800px){.product-grid{grid-template-columns:1fr}.store-top{align-items:flex-start;gap:.35rem;flex-direction:column}}
-    .track {min-height:280px;background:#fbfdff;}.track.security {background:#f4fbf9;border-color:#b7ded6;}.track-label {font-size:.76rem;font-weight:800;letter-spacing:.08em;color:#08736a;margin-bottom:.65rem;}.process-step {display:flex;gap:.7rem;padding:.58rem 0;border-top:1px solid #e8edf2;}.process-step:first-of-type {border-top:0;}.step-dot {height:1.45rem;width:1.45rem;min-width:1.45rem;border-radius:50%;background:#dceaf8;color:#14507a;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;}.security .step-dot {background:#cceee5;color:#07665e;}.step-copy {font-size:.88rem;color:#334155;line-height:1.42;}.step-copy small {display:block;color:#718096;margin-top:.08rem;}
+    .execution-board {border:1px solid #dce5ee;border-radius:18px;background:#f8fafc;overflow:hidden;margin:.75rem 0 1rem;box-shadow:0 10px 28px rgba(15,23,42,.06)}
+    .execution-status {display:flex;align-items:center;gap:.55rem;padding:.72rem 1rem;border-bottom:1px solid #dce5ee;background:#fff;color:#475569;font-size:.82rem}.execution-status strong{color:#172033}.live-pulse{width:.55rem;height:.55rem;border-radius:50%;background:#10b981;box-shadow:0 0 0 0 rgba(16,185,129,.45);animation:pulse 1.45s infinite}.execution-status.complete .live-pulse{animation:none;box-shadow:none}@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+    .lane-heads,.execution-pair {display:grid;grid-template-columns:minmax(0,1fr) 116px minmax(0,1fr);gap:.8rem}.lane-heads{padding:1rem 1rem .45rem}.lane-title{display:flex;align-items:center;gap:.6rem}.lane-title.right{grid-column:3}.lane-icon{height:2rem;width:2rem;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#e8f1fb;color:#14507a;font-weight:900}.lane-title.right .lane-icon{background:#dff5ee;color:#08736a}.lane-name{font-size:.96rem;font-weight:900;color:#172033}.lane-sub{font-size:.72rem;color:#64748b;margin-top:.06rem}
+    .execution-list{padding:.35rem 1rem 1.1rem}.execution-pair{position:relative;align-items:stretch;padding:.42rem 0}.execution-pair:not(:last-child){margin-bottom:1.05rem}.execution-pair:not(:last-child)::after{content:'↓  下一步';position:absolute;left:50%;bottom:-1.16rem;transform:translateX(-50%);font-size:.68rem;font-weight:800;color:#94a3b8;background:#f8fafc;padding:0 .4rem;z-index:2}
+    .agent-node,.shield-node{position:relative;border-radius:13px;padding:.84rem .9rem;background:#fff;border:1px solid #dbe5ef;min-height:96px}.agent-node{border-left:4px solid #3b82f6}.shield-node{border-left:4px solid #10b981;background:#f3fbf8}.execution-pair.pending .shield-node{border-left-color:#f59e0b;background:#fffbeb}.execution-pair.block .shield-node{border-left-color:#ef4444;background:#fff7f7}.execution-pair.repair .shield-node{border-left-color:#8b5cf6;background:#faf8ff}.node-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.3rem}.node-step{font-size:.68rem;font-weight:900;letter-spacing:.06em;color:#2563eb}.shield-node .node-step{color:#08736a}.node-state{font-size:.65rem;font-weight:900;padding:.15rem .42rem;border-radius:999px;background:#dcfce7;color:#166534}.pending .node-state{background:#fef3c7;color:#92400e}.block .node-state{background:#fee2e2;color:#991b1b}.repair .node-state{background:#ede9fe;color:#6d28d9}.node-title{font-size:.9rem;font-weight:850;color:#172033;line-height:1.35}.node-detail{font-size:.75rem;color:#64748b;line-height:1.45;margin-top:.27rem}.handoff{display:flex;flex-direction:column;justify-content:center;gap:.42rem;color:#64748b}.arrow-line{display:flex;align-items:center;gap:.32rem;font-size:.63rem;font-weight:800;white-space:nowrap}.arrow-line::before,.arrow-line::after{content:'';height:1px;background:#94a3b8;flex:1}.arrow-line.out{color:#2563eb}.arrow-line.back{color:#059669;flex-direction:row-reverse}.pending .arrow-line.back{color:#d97706}.block .arrow-line.back{color:#dc2626}.arrow-symbol{font-size:1.15rem;line-height:1}.board-empty{padding:1.1rem;color:#64748b;font-size:.84rem}
+    @media(max-width:800px){.lane-heads{display:none}.execution-pair{grid-template-columns:1fr;gap:.45rem}.handoff{min-height:42px}.arrow-line{justify-content:center}.arrow-line::before,.arrow-line::after{max-width:70px}.arrow-line.out .arrow-symbol{transform:rotate(90deg)}.arrow-line.back{display:none}.execution-pair:not(:last-child)::after{display:none}}
     [data-testid="stMetric"] {border:1px solid #e2e8f0;border-radius:12px;padding:.7rem .9rem;}
     </style>
     """,
@@ -296,42 +301,207 @@ def _result_copy(scenario: str, session: DemoSession) -> tuple[str, str, bool]:
     return "人工批准后已安全完成", "系统已再次核验后执行了获批准的操作。", False
 
 
-def _step(number: int, title: str, detail: str) -> str:
-    return f"<div class='process-step'><div class='step-dot'>{number}</div><div class='step-copy'><strong>{escape(title)}</strong><small>{escape(detail)}</small></div></div>"
+def _action_copy(capability: str, arguments: dict) -> tuple[str, str]:
+    page = arguments.get("page")
+    action = arguments.get("action")
+    if capability == "web.page.read" and page == "search":
+        query = arguments.get("query") or "全部商品"
+        budget = arguments.get("max_price")
+        detail = f"搜索“{query}”" + (f"，预算不超过 ¥{float(budget):.2f}" if budget else "")
+        return "读取商品搜索页", detail
+    if capability == "web.page.read" and page == "product":
+        return "读取候选商品详情", f"查看商品 {arguments.get('product_id') or '候选项'} 的页面信息"
+    if capability == "web.action.submit" and action == "add_to_cart":
+        return "将选中商品加入购物车", f"数量 {arguments.get('quantity', 1)}，通过受控 Web 能力提交"
+    if capability == "web.action.submit" and action == "place_order":
+        return "提交本地模拟订单", "仅创建演示订单，不连接支付或产生真实扣款"
+    if capability == "response.release":
+        return "发布任务结果", "在返回用户之前提交最终响应检查"
+    if capability == "web.page.read":
+        return "读取 Web 页面", f"页面：{page or 'home'}"
+    if capability == "web.action.submit":
+        return "提交网页动作", f"动作：{action or '完成用户任务'}"
+    return "请求受控能力", capability
+
+
+def _shield_copy(trace: dict, events=()) -> tuple[str, str, str, str]:
+    decision = str(trace.get("decision") or "ALLOW").upper()
+    status = str(trace.get("status") or "SUCCEEDED").upper()
+    shielding = next(
+        (event.details.get("shielding_plan") for event in events if event.details.get("shielding_plan")),
+        None,
+    )
+    circuit_count = len(shielding.get("circuits", [])) if shielding else 0
+    predicate_count = sum(
+        len(circuit.get("assignments", []))
+        for circuit in (shielding.get("circuits", []) if shielding else [])
+    )
+    if decision == "REPAIR":
+        title, state, return_label = "发现风险并执行最小化修复", "REPAIR", "修复后继续"
+    elif decision in {"REQUIRE_APPROVAL", "REQUIRE_CONSENT"}:
+        title, state, return_label = "需要人工授权后才能继续", "PENDING", "等待授权"
+    elif decision in {"BLOCK", "DENIED"} or status != "SUCCEEDED":
+        title, state, return_label = "阻断不合规动作", "BLOCK", "已阻断"
+    else:
+        title, state, return_label = "法规规则核验通过", "ALLOW", "允许继续"
+    facts = []
+    if circuit_count:
+        facts.append(f"核验 {circuit_count} 个规则电路、{predicate_count} 个原子谓词")
+    facts.append(f"策略裁决 {decision}")
+    facts.append("执行已审计" if status == "SUCCEEDED" else f"执行状态 {status}")
+    return title, " · ".join(facts), state, return_label
+
+
+def _planning_pair(session: DemoSession) -> dict:
+    if session.model_plan:
+        agent_detail = (
+            f"{session.model_plan.model} 生成 {session.model_plan.environment} / "
+            f"{session.model_plan.task_action} 受限计划：{session.model_plan.explanation}"
+        )
+    else:
+        agent_detail = "本地测试解释器生成固定能力范围内的行动计划。"
+    return {
+        "agent_title": "理解任务并生成行动计划",
+        "agent_detail": agent_detail,
+        "shield_title": "锁定法规与 Agent 能力边界",
+        "shield_detail": "加载 " + "、".join(session.regulations) + " 规则；禁止未注册工具、越权环境与未确认下单",
+        "state": "ALLOW",
+        "return_label": "计划可执行",
+    }
+
+
+def _execution_pairs(session: DemoSession) -> list[dict]:
+    pairs = [_planning_pair(session)]
+    events_by_transaction: dict[str, list] = {}
+    for event in session.snapshot.events:
+        if event.transaction_id:
+            events_by_transaction.setdefault(event.transaction_id, []).append(event)
+    traces = list(session.result.get("tool_trace", []))
+    traced_transactions = {str(item.get("transaction_id")) for item in traces}
+    for event in session.snapshot.events:
+        if (
+            event.event_type == "CAPABILITY_REQUEST"
+            and event.transaction_id
+            and event.transaction_id not in traced_transactions
+        ):
+            traces.append(
+                {
+                    "capability": event.capability_id or "runtime.action",
+                    "transaction_id": event.transaction_id,
+                    "status": "SUCCEEDED",
+                    "decision": next(
+                        (
+                            item.decision
+                            for item in events_by_transaction[event.transaction_id]
+                            if item.decision
+                        ),
+                        "ALLOW",
+                    ),
+                    "arguments": {},
+                }
+            )
+            traced_transactions.add(event.transaction_id)
+    for trace in traces:
+        capability = str(trace.get("capability") or "runtime.action")
+        agent_title, agent_detail = _action_copy(capability, dict(trace.get("arguments") or {}))
+        related = events_by_transaction.get(str(trace.get("transaction_id")), [])
+        shield_title, shield_detail, state, return_label = _shield_copy(trace, related)
+        pairs.append(
+            {
+                "agent_title": agent_title,
+                "agent_detail": agent_detail,
+                "shield_title": shield_title,
+                "shield_detail": shield_detail,
+                "state": state,
+                "return_label": return_label,
+            }
+        )
+    return pairs
+
+
+def _process_board_html(pairs: list[dict], *, complete: bool) -> str:
+    rows = []
+    for index, pair in enumerate(pairs, 1):
+        state = str(pair.get("state") or "PENDING").upper()
+        css_state = {"PENDING": "pending", "BLOCK": "block", "REPAIR": "repair"}.get(state, "allow")
+        state_label = {"PENDING": "检查中", "ALLOW": "已通过", "BLOCK": "已阻断", "REPAIR": "已修复"}.get(state, state)
+        rows.append(
+            f"<div class='execution-pair {css_state}'>"
+            f"<div class='agent-node'><div class='node-top'><span class='node-step'>执行第 {index} 步</span><span class='node-state'>已发起</span></div>"
+            f"<div class='node-title'>{escape(str(pair['agent_title']))}</div><div class='node-detail'>{escape(str(pair['agent_detail']))}</div></div>"
+            f"<div class='handoff'><div class='arrow-line out'><span>交给防护</span><span class='arrow-symbol'>→</span></div>"
+            f"<div class='arrow-line back'><span>{escape(str(pair.get('return_label') or '检查中'))}</span><span class='arrow-symbol'>←</span></div></div>"
+            f"<div class='shield-node'><div class='node-top'><span class='node-step'>防护第 {index} 步</span><span class='node-state'>{escape(state_label)}</span></div>"
+            f"<div class='node-title'>{escape(str(pair['shield_title']))}</div><div class='node-detail'>{escape(str(pair['shield_detail']))}</div></div></div>"
+        )
+    status = "执行完成 · 每个 Agent 动作都经过 ShieldAgent" if complete else f"安全执行中 · 已输出 {len(pairs)} 步"
+    return (
+        f"<section class='execution-board'><div class='execution-status{' complete' if complete else ''}'><span class='live-pulse'></span><strong>{status}</strong><span>动作与防护一一对应</span></div>"
+        "<div class='lane-heads'><div class='lane-title'><div class='lane-icon'>A</div><div><div class='lane-name'>任务 Agent</div><div class='lane-sub'>左侧 · 正常执行轨迹</div></div></div>"
+        "<div class='lane-title right'><div class='lane-icon'>S</div><div><div class='lane-name'>ShieldAgent</div><div class='lane-sub'>右侧 · 实时安全防护</div></div></div></div>"
+        f"<div class='execution-list'>{''.join(rows) if rows else '<div class=\"board-empty\">正在等待 Agent 产生第一个动作…</div>'}</div></section>"
+    )
+
+
+class _LiveExecutionFlow:
+    def __init__(self) -> None:
+        self.slot = st.empty()
+        self.pairs: list[dict] = []
+
+    def _draw(self, *, complete: bool = False) -> None:
+        self.slot.markdown(
+            _process_board_html(self.pairs, complete=complete),
+            unsafe_allow_html=True,
+        )
+        time.sleep(0.08)
+
+    def on_progress(self, event: str, payload) -> None:
+        if event == "planning_started":
+            self.pairs = [{
+                "agent_title": "理解任务并生成行动计划",
+                "agent_detail": "在线模型正在把 Prompt 转换为固定范围的 Web 动作…",
+                "shield_title": "加载法规与能力边界",
+                "shield_detail": "正在准备 " + "、".join(payload.get("regulations", ())) + " 运行时规则",
+                "state": "PENDING",
+                "return_label": "检查中",
+            }]
+        elif event == "planning_completed" and self.pairs:
+            self.pairs[0].update({
+                "agent_detail": f"{payload.get('model')} 生成 {payload.get('environment')} / {payload.get('task_action')} 计划：{payload.get('explanation')}",
+                "shield_title": "计划范围核验通过",
+                "shield_detail": "环境、动作类型与参数均在 Agent 已注册能力范围内",
+                "state": "ALLOW",
+                "return_label": "计划可执行",
+            })
+        elif event == "action_requested":
+            capability = str(payload.get("capability") or "runtime.action")
+            title, detail = _action_copy(capability, dict(payload.get("arguments") or {}))
+            self.pairs.append({
+                "agent_title": title,
+                "agent_detail": detail,
+                "shield_title": "正在拦截并核验此动作",
+                "shield_detail": f"ShieldAgent 正在检查 {capability} 的规则、数据与副作用",
+                "state": "PENDING",
+                "return_label": "检查中",
+            })
+        elif event == "shield_decided" and self.pairs:
+            title, detail, state, return_label = _shield_copy(dict(payload))
+            self.pairs[-1].update({
+                "shield_title": title,
+                "shield_detail": detail,
+                "state": state,
+                "return_label": return_label,
+            })
+        self._draw()
+
+    def finalize(self, session: DemoSession) -> None:
+        self.pairs = _execution_pairs(session)
+        self._draw(complete=True)
 
 
 def _render_execution_flow(session: DemoSession) -> None:
-    requests = [event.capability_id for event in session.snapshot.events if event.event_type == "CAPABILITY_REQUEST" and event.capability_id]
-    unique_requests = list(dict.fromkeys(requests))
-    decision = session.snapshot.policy_decision
-    planner_detail = (
-        f"在线模型 {session.model_plan.model} 生成受限计划：{session.model_plan.task_action} · {session.model_plan.explanation}"
-        if session.model_plan
-        else "本地测试解释器生成受限计划。"
-    )
-    trace = session.result.get("tool_trace", [])
-    action_trace = " → ".join(
-        f"{item['capability']}({item.get('arguments', {}).get('action') or item.get('arguments', {}).get('page') or 'release'})"
-        for item in trace
-    )
-    normal_steps = [
-        ("接收 Web 任务 Prompt", "任务仅在当前会话中处理。"),
-        ("生成任务行动计划", planner_detail),
-        ("产生动作轨迹", action_trace or " → ".join(unique_requests) or "未记录能力请求"),
-        ("请求受控工具执行", "任务 Agent 无法直接调用外部后端。"),
-    ]
-    security_steps = [
-        ("加载已编译法规规则", "本次运行使用：" + "、".join(session.regulations)),
-        ("核验每个能力请求", "先检查数据分类、目的、接收方与副作用。"),
-        ("执行干预", f"策略结果：{decision.decision if decision else 'ALLOW'}；控制：{decision.intervention if decision else '无'}"),
-        ("记录并验证实际效果", "每次效果都经 Broker 持久化与审计。"),
-    ]
-    left, right = st.columns(2, gap="large")
-    with left:
-        st.markdown("<section class='track'><div class='track-label'>左侧 · TASK AGENT ACTION TRAJECTORY</div><h3>Web 任务 Agent 的正常执行轨迹</h3>" + "".join(_step(index, *row) for index, row in enumerate(normal_steps, 1)) + "</section>", unsafe_allow_html=True)
-    with right:
-        st.markdown("<section class='track security'><div class='track-label'>右侧 · SHIELDAGENT SHIELDING TRAJECTORY</div><h3>ShieldAgent 如何保护每个动作</h3>" + "".join(_step(index, *row) for index, row in enumerate(security_steps, 1)) + "</section>", unsafe_allow_html=True)
-        _render_shielding_plan(session)
+    st.markdown(_process_board_html(_execution_pairs(session), complete=True), unsafe_allow_html=True)
+    _render_shielding_plan(session)
 
 
 def _render_shielding_plan(session: DemoSession) -> None:
@@ -428,28 +598,46 @@ with hint_column:
     else:
         st.caption("已满足执行条件：在线模型先生成受限行动计划，再由 AgentShield Broker 按所选法规逐项核验。")
 
+ran_now = False
+run_failed = False
 if run:
     _close_previous()
+    st.markdown("---")
+    st.markdown("## 安全执行过程")
+    st.caption(f"任务 Prompt：{prompt}")
+    live_flow = _LiveExecutionFlow()
     try:
-        with st.spinner("Agent 正在规划任务，AgentShield 正在加载规则并受控执行…"):
-            session = run_demo(scenario, task_prompt=prompt, regulations=regulations, model_config=model_config, web_task=True)
+        session = run_demo(
+            scenario,
+            task_prompt=prompt,
+            regulations=regulations,
+            model_config=model_config,
+            web_task=True,
+            progress_callback=live_flow.on_progress,
+        )
         st.session_state["demo_session"] = session
         st.session_state["run_signature"] = signature
-        st.rerun()
+        live_flow.finalize(session)
+        ran_now = True
     except ModelPlanningError as exc:
+        run_failed = True
         st.error(f"模型计划未通过安全格式核验：{exc}")
         st.info("请确认模型名称正确；可先点击“测试 API 连接”。系统兼容常见推理标签和 Markdown 包装，但只接受固定 Web 环境、动作、搜索词、预算、数量与说明字段。")
     except Exception as exc:
+        run_failed = True
         st.error(f"安全执行未完成：{type(exc).__name__}: {exc}")
 
 session = st.session_state.get("demo_session")
 if isinstance(session, DemoSession):
-    st.markdown("---")
-    st.markdown("## 本次安全执行结果")
-    st.caption(f"任务 Prompt：{session.task_prompt}")
+    if not ran_now:
+        st.markdown("---")
+        st.markdown("## 安全执行过程")
+        st.caption(f"任务 Prompt：{session.task_prompt}")
+        _render_execution_flow(session)
+    else:
+        _render_shielding_plan(session)
+    st.markdown("### 执行结果")
     _render_result(scenario, session)
-    st.markdown("### 执行过程：业务路径与治理路径")
-    _render_execution_flow(session)
     with st.expander("查看数据状态、策略决定与审计证据", expanded=False):
         data_column, decision_column = st.columns(2, gap="large")
         with data_column:
@@ -462,7 +650,7 @@ if isinstance(session, DemoSession):
             render_effects(session.snapshot)
         with audit_column:
             render_audit(session.snapshot)
-else:
+elif not run_failed:
     st.markdown("---")
     st.markdown("### 安全执行会做什么？")
     one, two, three = st.columns(3)

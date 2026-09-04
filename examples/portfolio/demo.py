@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Mapping
 
 from agentshield.capabilities.models import CapabilityRequest
 from agentshield.capabilities.service import BrokerServiceProcess
@@ -70,12 +70,17 @@ def run_web_task_broker(
     max_price: float | None = None,
     quantity: int = 1,
     trajectory_id: str = "web-task-demo",
+    progress_callback: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Run a brokered WebArena-style task agent against a local web fixture."""
     service = BrokerServiceProcess(database, regulations=regulations)
     with service as client:
         broker_pid = client.health()["pid"]
-        agent = build_brokered_web_task_agent(client, trajectory_id=trajectory_id)
+        agent = build_brokered_web_task_agent(
+            client,
+            trajectory_id=trajectory_id,
+            progress_callback=progress_callback,
+        )
         result = agent.invoke(
             {
                 "messages": [{"role": "user", "content": prompt}],
