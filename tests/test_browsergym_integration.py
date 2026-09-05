@@ -41,6 +41,24 @@ def test_browsergym_guard_blocks_personal_data_fill_before_environment_step(tmp_
     assert verdict.shielding_plan["circuits"]
 
 
+def test_pipl_guard_blocks_sensitive_test_identifiers_before_environment_step(tmp_path):
+    for index, value in enumerate(("110101199001011234", "4242424242424242")):
+        guard = BrowserGymActionGuard(
+            ("PIPL",),
+            trajectory_id=f"pipl-sensitive-{index}",
+            audit_directory=tmp_path,
+        )
+        verdict = guard.verify(
+            f'fill("12", "{value}")',
+            {"goal": "执行敏感信息防护测试", "url": "http://shopping.local"},
+        )
+
+        assert verdict.allowed is False
+        assert verdict.action is None
+        assert verdict.decision in {"REQUIRE_APPROVAL", "REQUIRE_CONSENT", "REPLAN"}
+        assert verdict.shielding_plan["circuits"]
+
+
 def test_browsergym_guard_blocks_personal_data_in_agent_response(tmp_path):
     guard = BrowserGymActionGuard(("GDPR",), audit_directory=tmp_path)
     verdict = guard.verify(
