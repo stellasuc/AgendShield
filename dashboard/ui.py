@@ -362,12 +362,12 @@ def _render_stack_selector() -> tuple[str, dict[str, str]]:
     st.markdown(
         "<section class='visualization-intro'><div class='agent-tag'>这个工作台展示什么</div>"
         "<h3>把一次网页 Agent 的安全执行过程变得看得见。</h3>"
-        "<p>输入任务、选择需要遵守的法规后，系统会逐步展示任务 Agent 提议的每个网页动作，"
-        "以及 ShieldAgent 在动作真正执行前如何检查规则、要求修复或阻止风险操作。</p>"
+        "<p>输入任务、选择需要遵守的法规后，ShieldAgent 会先把审核后规则转成规划约束，再逐步展示任务 Agent 的候选步骤，"
+        "以及这些步骤如何在成为实际网页动作前被放行、要求修复或阻止。</p>"
         "<div class='visualization-flow'>"
-        "<div class='visualization-node'><strong>1. 任务 Agent 提议动作</strong><span>例如搜索商品、读取页面或加入购物车</span></div>"
+        "<div class='visualization-node'><strong>1. Plan 注入安全边界</strong><span>把法规规则、数据范围与能力限制交给任务 Agent</span></div>"
         "<div class='visualization-arrow'>→</div>"
-        "<div class='visualization-node shield'><strong>2. ShieldAgent 前置检查</strong><span>将法规规则应用到当前动作和页面证据</span></div>"
+        "<div class='visualization-node shield'><strong>2. 核验候选计划步骤</strong><span>结合当前页面证据进行确定性规则检查</span></div>"
         "<div class='visualization-arrow'>→</div>"
         "<div class='visualization-node'><strong>3. 放行、修复或阻止</strong><span>结果会同步呈现在下方左右两条轨迹中</span></div>"
         "</div></section>",
@@ -848,7 +848,7 @@ def _render_result(scenario: str, session: DemoSession) -> None:
             st.warning(session.result["scope_guard"])
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。任务 Agent 每提出一个网页操作，ShieldAgent 都会先检查是否符合规则；页面会清楚展示该动作是被放行、要求调整，还是被阻止。</p><div class="hero-badge">每一个动作，都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。ShieldAgent 先约束任务 Agent 的规划，再核验每个候选步骤；页面会清楚展示该步骤是被批准执行、要求调整，还是被阻止。</p><div class="hero-badge">从 Plan 到执行，每一步都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config, execution_backend, webarena_urls = _render_setup()
 handoff_resume = st.session_state.get("paper_handoff_resume")
@@ -1050,7 +1050,7 @@ elif not run_failed:
     st.markdown("---")
     st.markdown("### 安全执行会做什么？")
     one, two, three = st.columns(3)
-    for column, title, text in ((one, "1 · AWM 提议动作", "开源任务 Agent 根据 WebArena 观察生成 BrowserGym 动作。"), (two, "2 · ShieldAgent 前置核验", "动作不经核验不能到达 WebArena env.step。"), (three, "3 · 反馈或执行", "允许则执行；不安全则反馈 AWM 重新规划并保留审计。")):
+    for column, title, text in ((one, "1 · Plan 约束", "ShieldAgent 将审核后法规规则编译为 AWM 的可信规划边界。"), (two, "2 · 候选步骤核验", "AWM 的下一步计划通过确定性检查后，才可能成为网页动作。"), (three, "3 · 反馈或执行", "允许则进入 WebArena；不安全则反馈 AWM 重新规划并保留审计。")):
         column.markdown(f"<div class='agent-card'><div class='agent-tag'>{title}</div><p>{text}</p></div>", unsafe_allow_html=True)
 
 st.markdown("---")
