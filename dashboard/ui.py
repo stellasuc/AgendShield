@@ -880,12 +880,17 @@ if run:
 session = st.session_state.get("demo_session")
 upstream_result = st.session_state.get("upstream_result")
 if isinstance(upstream_result, dict):
+    upstream_pairs = _paper_pairs(upstream_result)
     if not ran_now:
         st.markdown("---")
         st.markdown("## 安全执行过程")
-        st.markdown(_process_board_html(_paper_pairs(upstream_result), complete=True), unsafe_allow_html=True)
-    st.success("真实 AWM + WebArena 运行已完成；每个动作均在进入环境前通过 ShieldAgent。")
-    st.caption(f"BrowserGym 轨迹：{upstream_result.get('experiment_directory')} · ShieldAgent 审计：{upstream_result.get('shield_trace_path')}")
+        if upstream_pairs:
+            st.markdown(_process_board_html(upstream_pairs, complete=True), unsafe_allow_html=True)
+    if upstream_pairs:
+        st.success("真实 AWM + WebArena 运行已完成；每个动作均在进入环境前通过 ShieldAgent。")
+        st.caption(f"BrowserGym 轨迹：{upstream_result.get('experiment_directory')} · ShieldAgent 审计：{upstream_result.get('shield_trace_path')}")
+    else:
+        st.error("本次运行没有生成任何可审核的 Agent 动作。请重新点击“安全执行”；系统会显示真实失败原因，不再把空轨迹标记为完成。")
 elif isinstance(session, DemoSession):
     if not ran_now:
         st.markdown("---")
