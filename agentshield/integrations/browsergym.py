@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -42,6 +43,7 @@ class ActionVerification:
     action_sha256: str
     shielding_plan: Mapping[str, object]
     repair_attempts: int
+    user_handoff: Mapping[str, object] | None = None
 
     def audit_view(self) -> dict[str, object]:
         return {
@@ -52,6 +54,7 @@ class ActionVerification:
             "action_sha256": self.action_sha256,
             "shielding_plan": dict(self.shielding_plan),
             "repair_attempts": self.repair_attempts,
+            "user_handoff": dict(self.user_handoff) if self.user_handoff else None,
         }
 
 
@@ -161,15 +164,24 @@ class BrowserGymActionGuard:
             result.decisions[-1].explanation if result.decisions else "ShieldAgent runtime gate"
         )
         plan = result.shielding_plans[-1].audit_view() if result.shielding_plans else {}
+        action_sha256 = sha256(action.encode("utf-8")).hexdigest()
+        user_handoff = _user_handoff(
+            result.outcome,
+            names,
+            action_sha256,
+            recipient,
+            plan,
+        )
         return self._record(ActionVerification(
             allowed=allowed,
             action=candidate if allowed else None,
             decision=decision,
             explanation=explanation,
             action_names=names,
-            action_sha256=sha256(action.encode("utf-8")).hexdigest(),
+            action_sha256=action_sha256,
             shielding_plan=plan,
             repair_attempts=result.repair_attempts,
+            user_handoff=user_handoff,
         ))
 
     def _record(self, verdict: ActionVerification) -> ActionVerification:
@@ -205,12 +217,14 @@ class ShieldedBrowserAgent:
         guard: BrowserGymActionGuard,
         *,
         max_replans: int = 2,
+        enable_user_handoff: bool = False,
     ) -> None:
         if max_replans < 0:
             raise ValueError("max_replans cannot be negative")
         self.delegate = delegate
         self.guard = guard
         self.max_replans = max_replans
+        self.enable_user_handoff = enable_user_handoff
         self.action_set = delegate.action_set
 
     def obs_preprocessor(self, observation: dict[str, Any]) -> dict[str, Any]:
@@ -232,6 +246,17 @@ class ShieldedBrowserAgent:
                     "audit_path": str(self.guard.audit_path),
                 }
                 return verdict.action, last_info
+            if self.enable_user_handoff and verdict.user_handoff:
+                last_info["agentshield"] = {
+                    "status": "WAITING_USER",
+                    "attempts": attempts,
+                    "audit_path": str(self.guard.audit_path),
+                    "user_handoff": dict(verdict.user_handoff),
+                }
+                return (
+                    'send_msg_to_user("ShieldAgent paused this task for a scoped user action. Complete the requested step in the AgentShield console to continue.")',
+                    last_info,
+                )
             if replan < self.max_replans:
                 current = dict(current)
                 current["last_action_error"] = _feedback(verdict)
@@ -297,3 +322,34 @@ def _feedback(verdict: ActionVerification) -> str:
         "Replan without bypassing the policy gate or exposing protected data."
         f"{suffix}"
     )
+
+
+def _user_handoff(
+    outcome: Decision,
+    action_names_: tuple[str, ...],
+    action_sha256: str,
+    recipient: str,
+    shielding_plan: Mapping[str, object],
+) -> dict[str, object] | None:
+    if outcome not in {Decision.REQUIRE_APPROVAL, Decision.REQUIRE_CONSENT}:
+        return None
+    action_kind = "MANUAL_SENSITIVE_INPUT" if set(action_names_) & {"fill", "upload_file"} else "MANUAL_REVIEW"
+    instruction = (
+        "请在目标网站中亲自完成涉及个人或敏感信息的输入，完成后返回 AgentShield 确认；不要把信息填写到 Agent Prompt 或完成说明中。"
+        if action_kind == "MANUAL_SENSITIVE_INPUT"
+        else "请人工检查该动作的接收方、目的和数据范围，确认已完成必要授权后返回 AgentShield。"
+    )
+    now = datetime.now(timezone.utc)
+    circuits = shielding_plan.get("circuits", []) if shielding_plan else []
+    return {
+        "handoff_id": f"UH-{uuid4().hex[:12]}",
+        "status": "PENDING_USER",
+        "action_kind": action_kind,
+        "instruction": instruction,
+        "action_sha256": action_sha256,
+        "recipient_sha256": sha256(recipient.encode("utf-8")).hexdigest(),
+        "rule_ids": [str(item.get("rule_id")) for item in circuits if isinstance(item, dict)],
+        "evidence_type": "USER_ATTESTATION",
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=30)).isoformat(),
+    }

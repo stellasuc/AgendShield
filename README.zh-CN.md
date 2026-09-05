@@ -107,10 +107,11 @@ agentshield autopolicy review-template \
 1. AWM 的 `get_action(observation)` 产生 BrowserGym 高层动作；
 2. AgentShield 解析动作名称、目标、页面证据、任务目的和可能的数据载荷；
 3. ShieldAgent 检索相关动作规则电路并为原子谓词赋值；
-4. 确定性校验返回 `ALLOW / REPLAN / BLOCK / REQUIRE_APPROVAL / REPAIR`；
+4. 确定性校验返回 `ALLOW / REPLAN / BLOCK / REQUIRE_APPROVAL / REQUIRE_CONSENT / REPAIR`；
 5. `ALLOW` 才把动作交给 WebArena；不安全动作永远不会到达 `env.step()`；
 6. `REPLAN` 作为 `last_action_error` 反馈给原 AWM，最多重新规划指定次数；
-7. 仍不安全时返回 BrowserGym 安全终止消息，并写入载荷最小化审计。
+7. 需要用户亲自处理时生成有范围和时效的 `PENDING_USER` 检查点，验证用户完成凭证后以独立轨迹续跑；
+8. 仍不安全时返回 BrowserGym 安全终止消息，并写入载荷最小化审计。
 
 这比论文开放仓库中只读取轨迹最后一步的事后脚本更适合真实运行时：检查点明确位于 Agent 输出与环境副作用之间。
 
@@ -168,6 +169,7 @@ CLI 和页面会优先使用 `.venv-awm/bin/python`。AWM 固定版本通过 Lan
 - fail-closed 的确定性 LTL 风格核验；
 - Search、Binary-Check、Detect、Formal Verify 的可扩展操作接口；
 - 不安全动作反馈与 AWM 重新规划；
+- 用户接管检查点、限时完成凭证与安全续跑；
 - 生命周期状态、数据分类和对象级血缘；
 - 外部传输、记忆、日志、响应与副作用前置防护；
 - Broker 进程隔离、持久化审批、修复重验和副作用幂等；
@@ -187,7 +189,7 @@ agentshield demo idempotency
 agentshield dashboard
 ```
 
-上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **141 passed**，其中新增测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、AWM 反馈重规划，以及含个人数据的 BrowserGym 动作在环境执行前被阻止。
+上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **150 passed**，其中测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、AWM 反馈重规划、含个人数据的 BrowserGym 动作在环境执行前被阻止，以及用户接管检查点的范围、时效、单次使用和载荷最小化。
 
 ## 支持的审核后规则包
 

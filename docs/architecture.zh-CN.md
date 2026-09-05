@@ -16,10 +16,14 @@ flowchart LR
     AWM -->|"动作提案"| SA
     SA -->|"ALLOW"| STEP["WebArena env.step"]
     SA -->|"REPLAN + 规则反馈"| AWM
-    SA -->|"BLOCK / APPROVAL / REPAIR"| STOP["阻止或受控干预"]
+    SA -->|"REQUIRE_APPROVAL / CONSENT"| UH["用户接管检查点"]
+    UH -->|"范围与时效验证后续跑"| AWM
+    SA -->|"BLOCK / REPAIR"| STOP["阻止或受控干预"]
 ```
 
 `ShieldedBrowserAgent` 是组合适配器：它转发原 AWM 的 observation preprocessor 与 action set，在 `get_action()` 返回后拦截动作。只有 ShieldAgent 允许的动作才能从适配器返回给 BrowserGym，因此检查发生在环境副作用之前。
+
+对于需要用户亲自处理的个人信息输入或人工确认，`REQUIRE_APPROVAL` 和 `REQUIRE_CONSENT` 会被运行时编排为 `PENDING_USER` 检查点。旧轨迹安全终止；用户完成待办后，Dashboard 校验一次性检查点并保存不含原始载荷的完成凭证，再以独立轨迹继续剩余非敏感步骤。该编排不会把用户证明转换为对原始高风险动作的直接放行。
 
 以下 Capability Broker 路径仍是 ShieldAgent 的本地可重复测试与通用能力防护架构。它保留与框架无关的策略引擎，并将原始副作用权限移入独立 Broker 进程，但不再被描述为 AWM/WebArena 的替代实现。
 

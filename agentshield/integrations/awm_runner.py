@@ -36,7 +36,12 @@ class ShieldedAWMArgs(_AbstractAgentArgs):
             trajectory_id=self.trajectory_id,
             audit_directory=self.audit_directory,
         )
-        return ShieldedBrowserAgent(delegate, guard, max_replans=self.max_replans)
+        return ShieldedBrowserAgent(
+            delegate,
+            guard,
+            max_replans=self.max_replans,
+            enable_user_handoff=True,
+        )
 
 
 def _install_openai_tokenizer_fallback(llm_utils: Any, model_name: str) -> bool:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from agentshield.integrations.browsergym import (
     BrowserGymActionGuard,
     ShieldedBrowserAgent,
@@ -39,6 +41,9 @@ def test_browsergym_guard_blocks_personal_data_fill_before_environment_step(tmp_
     assert verdict.action is None
     assert verdict.decision in {"REQUIRE_APPROVAL", "REPLAN"}
     assert verdict.shielding_plan["circuits"]
+    assert verdict.user_handoff
+    assert verdict.user_handoff["status"] == "PENDING_USER"
+    assert "alice@example.com" not in json.dumps(verdict.user_handoff)
 
 
 def test_pipl_guard_blocks_sensitive_test_identifiers_before_environment_step(tmp_path):
@@ -107,3 +112,20 @@ def test_shielded_agent_sends_feedback_to_existing_agent_and_replans(tmp_path):
     assert "ShieldAgent rejected" in delegate.observations[1]["last_action_error"]
     assert info["agentshield"]["status"] == "ALLOWED"
     assert len(info["agentshield"]["attempts"]) == 2
+
+
+def test_shielded_agent_pauses_for_scoped_user_handoff_when_enabled(tmp_path):
+    delegate = _Agent(['fill("12", "alice@example.com")'])
+    shielded = ShieldedBrowserAgent(
+        delegate,
+        BrowserGymActionGuard(("GDPR",), audit_directory=tmp_path),
+        max_replans=2,
+        enable_user_handoff=True,
+    )
+
+    action, info = shielded.get_action({"goal": "提交测试客户资料", "url": "http://shopping.local"})
+
+    assert action.startswith("send_msg_to_user")
+    assert info["agentshield"]["status"] == "WAITING_USER"
+    assert info["agentshield"]["user_handoff"]["handoff_id"].startswith("UH-")
+    assert len(delegate.observations) == 1

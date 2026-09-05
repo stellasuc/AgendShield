@@ -24,6 +24,11 @@ from agentshield.integrations.awm_webarena import (
     default_awm_python,
 )
 from agentshield.integrations.upstreams import inspect_upstreams
+from agentshield.integrations.user_handoff import (
+    handoff_expired,
+    handoff_resume_prompt,
+    record_handoff_completion,
+)
 from dashboard.components.audit_view import render_audit, render_effects
 from dashboard.components.decision_view import render_decision
 from dashboard.components.lineage_view import render_lineage
@@ -473,17 +478,37 @@ def _paper_pairs(result: dict[str, object]) -> list[dict[str, str]]:
     return pairs
 
 
+def _paper_handoff(result: dict[str, object]) -> dict[str, object] | None:
+    trace_path = Path(str(result.get("shield_trace_path", "")))
+    if not trace_path.is_file():
+        return None
+    for line in reversed(trace_path.read_text(encoding="utf-8").splitlines()):
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        handoff = item.get("user_handoff") if isinstance(item, dict) else None
+        if isinstance(handoff, dict) and handoff.get("status") == "PENDING_USER":
+            return handoff
+    return None
+
+
 def _paper_pair(item: dict[str, object]) -> dict[str, str]:
     decision = str(item.get("decision", "BLOCK"))
     names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
-    state = "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
+    handoff = item.get("user_handoff") if isinstance(item.get("user_handoff"), dict) else None
+    state = "PENDING" if handoff else (
+        "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
+    )
     return {
         "agent_title": f"AWM 提议：{names}",
         "agent_detail": f"动作指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
-        "shield_title": f"ShieldAgent：{decision}",
-        "shield_detail": str(item.get("explanation") or "已完成规则电路核验"),
+        "shield_title": "需要用户接管处理" if handoff else f"ShieldAgent：{decision}",
+        "shield_detail": str(handoff.get("instruction")) if handoff else str(item.get("explanation") or "已完成规则电路核验"),
         "state": state,
-        "return_label": "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划",
+        "return_label": "等待用户完成" if handoff else (
+            "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划"
+        ),
     }
 
 
@@ -811,6 +836,12 @@ def _render_result(scenario: str, session: DemoSession) -> None:
 st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。任务 Agent 每提出一个网页操作，ShieldAgent 都会先检查是否符合规则；页面会清楚展示该动作是被放行、要求调整，还是被阻止。</p><div class="hero-badge">每一个动作，都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config, execution_backend, webarena_urls = _render_setup()
+handoff_resume = st.session_state.get("paper_handoff_resume")
+execution_prompt = (
+    handoff_resume_prompt(prompt, handoff_resume)
+    if isinstance(handoff_resume, dict)
+    else prompt
+)
 scenario = _scenario(regulations[0]) if regulations else "gdpr"
 paper_target = _paper_target(prompt, webarena_urls) if prompt else None
 awm_python = default_awm_python()
@@ -832,7 +863,8 @@ with run_column:
     ready_to_run = bool(prompt and regulations and model_config) and (
         execution_backend == "fixture" or paper_ready
     )
-    run = st.button("安全执行", type="primary", width="stretch", disabled=not ready_to_run)
+    run_clicked = st.button("安全执行", type="primary", width="stretch", disabled=not ready_to_run)
+    run = run_clicked or bool(handoff_resume and ready_to_run)
 with hint_column:
     if not regulations:
         st.caption("请先完成第 1 步：选择法规。系统会加载已完成 AutoPolicy 候选抽取和人工审核的运行时规则包。")
@@ -854,10 +886,18 @@ with hint_column:
 ran_now = False
 run_failed = False
 if run:
+    if isinstance(handoff_resume, dict):
+        try:
+            record_handoff_completion(handoff_resume)
+        except (ValueError, OSError) as exc:
+            st.session_state.pop("paper_handoff_resume", None)
+            st.error(f"无法继续执行：{exc}")
+            st.stop()
+        st.session_state.pop("paper_handoff_resume", None)
     _close_previous()
     st.markdown("---")
     st.markdown("## 安全执行过程")
-    st.caption(f"任务 Prompt：{prompt}")
+    st.caption(f"任务 Prompt：{prompt}" + (" · 正在从用户接管检查点继续" if handoff_resume else ""))
     if execution_backend == "paper":
         live_flow = _LiveExecutionFlow()
         try:
@@ -878,7 +918,7 @@ if run:
             result = AWMWebArenaRunner(python_executable=awm_python).run(
                 AWMWebArenaConfig(
                     task_name="openended",
-                    task_prompt=prompt,
+                    task_prompt=execution_prompt,
                     start_url=start_url,
                     model_name=model_name,
                     regulations=regulations,
@@ -928,12 +968,43 @@ session = st.session_state.get("demo_session")
 upstream_result = st.session_state.get("upstream_result")
 if isinstance(upstream_result, dict):
     upstream_pairs = _paper_pairs(upstream_result)
+    pending_handoff = _paper_handoff(upstream_result)
     if not ran_now:
         st.markdown("---")
         st.markdown("## 安全执行过程")
         if upstream_pairs:
             st.markdown(_process_board_html(upstream_pairs, complete=True), unsafe_allow_html=True)
-    if upstream_pairs:
+    if pending_handoff:
+        handoff_id = str(pending_handoff.get("handoff_id", ""))
+        st.warning("ShieldAgent 已暂停自动执行，并将这一敏感步骤交给用户处理。原始高风险动作没有进入 WebArena。")
+        with st.container(border=True):
+            st.markdown("### 需要你完成的操作")
+            st.write(str(pending_handoff.get("instruction") or "请完成指定的人工操作。"))
+            rule_ids = [str(item) for item in pending_handoff.get("rule_ids") or ()]
+            if rule_ids:
+                st.caption("触发规则：" + "、".join(rule_ids))
+            st.caption(f"检查点：{handoff_id} · 有效期 30 分钟 · 凭证不会记录个人信息")
+            confirmed = st.checkbox(
+                "我已亲自完成上述操作，并且没有把个人或敏感信息填写到 AgentShield 中。",
+                key=f"handoff_confirm_{handoff_id}",
+                disabled=handoff_expired(pending_handoff),
+            )
+            if handoff_expired(pending_handoff):
+                st.error("该用户接管检查点已过期，请重新发起安全执行。")
+            elif st.button(
+                "我已完成，重新核验并继续",
+                type="primary",
+                disabled=not confirmed,
+                key=f"handoff_resume_{handoff_id}",
+            ):
+                st.session_state["paper_handoff_resume"] = {
+                    "handoff": pending_handoff,
+                    "original_prompt": prompt,
+                    "regulations": regulations,
+                }
+                st.session_state.pop("upstream_result", None)
+                st.rerun()
+    elif upstream_pairs:
         st.success("真实 AWM + WebArena 运行已完成；每个动作均在进入环境前通过 ShieldAgent。")
         st.caption(f"BrowserGym 轨迹：{upstream_result.get('experiment_directory')} · ShieldAgent 审计：{upstream_result.get('shield_trace_path')}")
     else:
