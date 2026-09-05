@@ -5,6 +5,7 @@ import json
 from agentshield.integrations.browsergym import (
     BrowserGymActionGuard,
     ShieldedBrowserAgent,
+    _with_plan_constraints,
     action_names,
     classify_action,
 )
@@ -28,6 +29,42 @@ def test_browsergym_guard_allows_non_personal_navigation(tmp_path):
     assert verdict.action_names == ("click",)
     assert guard.audit_path.is_file()
     assert guard.shield_trace_path.is_file()
+
+
+def test_plan_preflight_is_audited_and_constraints_are_injected_before_planning(tmp_path):
+    guard = BrowserGymActionGuard(("GDPR",), audit_directory=tmp_path)
+    preflight = guard.prepare_plan("把 alice@example.com 填入客户表单")
+
+    constrained = _with_plan_constraints(
+        {
+            "goal": "把 alice@example.com 填入客户表单",
+            "chat_messages": [{"role": "user", "message": "完成表单"}],
+        },
+        preflight,
+    )
+    records = [json.loads(line) for line in guard.shield_trace_path.read_text().splitlines()]
+
+    assert preflight.allowed is True
+    assert preflight.decision == "PLAN_CONSTRAINED"
+    assert preflight.detected_categories
+    assert records[0]["record_type"] == "PLAN_PREFLIGHT"
+    assert "alice@example.com" not in json.dumps(records[0])
+    assert "[AgentShield verified planning constraints]" in constrained["goal"]
+    assert constrained["chat_messages"][-1]["role"] == "system"
+
+
+def test_empty_goal_is_blocked_before_delegate_planning(tmp_path):
+    delegate = _Agent(['click("9")'])
+    shielded = ShieldedBrowserAgent(
+        delegate,
+        BrowserGymActionGuard(("GDPR",), audit_directory=tmp_path),
+    )
+
+    action, info = shielded.get_action({"goal": ""})
+
+    assert action.startswith("send_msg_to_user")
+    assert info["agentshield"]["status"] == "PLAN_BLOCKED"
+    assert delegate.observations == []
 
 
 def test_browsergym_guard_blocks_personal_data_fill_before_environment_step(tmp_path):
@@ -112,6 +149,10 @@ def test_shielded_agent_sends_feedback_to_existing_agent_and_replans(tmp_path):
     assert "ShieldAgent rejected" in delegate.observations[1]["last_action_error"]
     assert info["agentshield"]["status"] == "ALLOWED"
     assert len(info["agentshield"]["attempts"]) == 2
+    assert "[AgentShield verified planning constraints]" in delegate.observations[0]["goal"]
+    records = [json.loads(line) for line in shielded.guard.shield_trace_path.read_text().splitlines()]
+    assert records[0]["record_type"] == "PLAN_PREFLIGHT"
+    assert records[1]["record_type"] == "PLAN_STEP_DECISION"
 
 
 def test_shielded_agent_pauses_for_scoped_user_handoff_when_enabled(tmp_path):

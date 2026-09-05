@@ -494,6 +494,21 @@ def _paper_handoff(result: dict[str, object]) -> dict[str, object] | None:
 
 
 def _paper_pair(item: dict[str, object]) -> dict[str, str]:
+    if item.get("record_type") == "PLAN_PREFLIGHT":
+        constraints = item.get("constraints") or ()
+        rule_ids = item.get("candidate_rule_ids") or ()
+        categories = item.get("detected_categories") or ()
+        detail = f"由 {len(rule_ids)} 条审核后规则编译出 {len(constraints)} 项规划约束，适用法规：{'、'.join(item.get('regulations') or ())}"
+        if categories:
+            detail += f"；任务中识别到 {len(categories)} 类个人信息信号，已要求规划时避免传播"
+        return {
+            "agent_title": "准备生成任务计划",
+            "agent_detail": "AWM 尚未产生网页动作，先接收可信的安全规划边界",
+            "shield_title": "在 Plan 阶段注入安全约束",
+            "shield_detail": detail,
+            "state": "ALLOW" if item.get("allowed") else "BLOCK",
+            "return_label": "开始受约束规划" if item.get("allowed") else "禁止规划",
+        }
     decision = str(item.get("decision", "BLOCK"))
     names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
     handoff = item.get("user_handoff") if isinstance(item.get("user_handoff"), dict) else None
@@ -501,13 +516,13 @@ def _paper_pair(item: dict[str, object]) -> dict[str, str]:
         "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
     )
     return {
-        "agent_title": f"AWM 提议：{names}",
-        "agent_detail": f"动作指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
+        "agent_title": f"AWM 计划下一步：{names}",
+        "agent_detail": f"候选计划步骤指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
         "shield_title": "需要用户接管处理" if handoff else f"ShieldAgent：{decision}",
         "shield_detail": str(handoff.get("instruction")) if handoff else str(item.get("explanation") or "已完成规则电路核验"),
         "state": state,
         "return_label": "等待用户完成" if handoff else (
-            "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划"
+            "批准执行该步骤" if item.get("allowed") else "反馈 AWM 重新规划"
         ),
     }
 
@@ -694,15 +709,15 @@ class _LiveExecutionFlow:
     def on_progress(self, event: str, payload) -> None:
         if event == "paper_started":
             self.pairs = [{
-                "agent_title": "AWM 正在读取页面并生成第一个动作",
-                "agent_detail": "首次模型调用通常需要等待数十秒；动作生成后会立即显示在这里",
-                "shield_title": "ShieldAgent 已加载，正在等待动作",
-                "shield_detail": "收到动作后将在进入 WebArena 前执行法规规则核验",
+                "agent_title": "AWM 正在准备生成任务计划",
+                "agent_detail": "首次模型调用通常需要等待数十秒；候选计划步骤生成后会立即显示",
+                "shield_title": "ShieldAgent 正在准备规划约束",
+                "shield_detail": "先把所选法规、数据边界与可用能力注入 Plan，再核验每个候选步骤",
                 "state": "PENDING",
                 "return_label": "等待动作",
             }]
         elif event == "paper_action_verified":
-            if self.pairs and self.pairs[0]["agent_title"].startswith("AWM 正在读取页面"):
+            if self.pairs and self.pairs[0]["agent_title"].startswith("AWM 正在准备"):
                 self.pairs = []
             self.pairs.append(_paper_pair(dict(payload)))
         elif event == "paper_failed" and self.pairs:
@@ -904,8 +919,8 @@ if run:
             environment, workflow, start_url = paper_target
             status = st.status("正在启动 AWM + WebArena 安全执行…", expanded=True)
             status.write("1/4 已加载固定版本 AWM 与 WebArena")
-            status.write("2/4 已把用户 Prompt 注入 BrowserGym goal")
-            status.write("3/4 ShieldAgent 已位于 AWM get_action 与 WebArena env.step 之间")
+            status.write("2/4 已把用户 Prompt 与法规约束注入 AWM Plan")
+            status.write("3/4 ShieldAgent 将核验每个候选计划步骤，通过后才交给 WebArena")
             live_flow.on_progress("paper_started", {"regulations": regulations})
             model_name = model_config.model
             if not model_name.startswith("openai/"):
