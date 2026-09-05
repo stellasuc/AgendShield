@@ -8,7 +8,10 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from typing import Mapping
+import tempfile
+import time
+from typing import Callable, Mapping
+import uuid
 
 from agentshield.integrations.upstreams import inspect_upstreams
 
@@ -139,7 +142,13 @@ class AWMWebArenaRunner:
         self.upstream_root = Path(upstream_root) if upstream_root is not None else None
         self.python_executable = python_executable or default_awm_python()
 
-    def build_command(self, config: AWMWebArenaConfig, output_root: str | Path) -> tuple[str, ...]:
+    def build_command(
+        self,
+        config: AWMWebArenaConfig,
+        output_root: str | Path,
+        *,
+        trajectory_id: str = "",
+    ) -> tuple[str, ...]:
         return (
             self.python_executable,
             "-m",
@@ -162,6 +171,8 @@ class AWMWebArenaRunner:
             str(config.max_replans),
             "--output-root",
             str(Path(output_root).expanduser().resolve()),
+            "--trajectory-id",
+            trajectory_id,
             "--headless",
             "true" if config.headless else "false",
             "--start-url",
@@ -175,6 +186,7 @@ class AWMWebArenaRunner:
         *,
         environment: Mapping[str, str] | None = None,
         timeout_seconds: int = 3600,
+        progress_callback: Callable[[str, Mapping[str, object]], None] | None = None,
     ) -> Mapping[str, object]:
         process_environment = os.environ.copy()
         process_environment.update(dict(environment or {}))
@@ -190,19 +202,52 @@ class AWMWebArenaRunner:
             raise RuntimeError(f"AWM/WebArena 尚未就绪：{json.dumps(readiness.audit_view(), ensure_ascii=False)}")
         if config.task_prompt:
             process_environment["AGENTSHIELD_TASK_PROMPT"] = config.task_prompt
-        completed = subprocess.run(
-            self.build_command(config, output_root),
-            cwd=Path(__file__).resolve().parents[2],
-            env=process_environment,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-        if completed.returncode != 0:
-            tail = "\n".join(completed.stderr.splitlines()[-12:])
-            raise RuntimeError(f"Shielded AWM run failed ({completed.returncode}): {tail}")
-        for line in reversed(completed.stdout.splitlines()):
+        output_path = Path(output_root).expanduser().resolve()
+        task_id = config.task_name.removeprefix("webarena.")
+        trajectory_id = f"awm-webarena-{task_id}-{uuid.uuid4().hex[:12]}"
+        trace_path = output_path / "audit" / f"{trajectory_id}.shield.jsonl"
+        trace_offset = 0
+        started_at = time.monotonic()
+        with (
+            tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stdout_stream,
+            tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stderr_stream,
+        ):
+            process = subprocess.Popen(
+                self.build_command(config, output_root, trajectory_id=trajectory_id),
+                cwd=Path(__file__).resolve().parents[2],
+                env=process_environment,
+                stdout=stdout_stream,
+                stderr=stderr_stream,
+                text=True,
+            )
+            try:
+                while process.poll() is None:
+                    trace_offset = _emit_trace_updates(trace_path, trace_offset, progress_callback)
+                    if time.monotonic() - started_at > timeout_seconds:
+                        process.kill()
+                        process.wait()
+                        raise RuntimeError(f"Shielded AWM run timed out after {timeout_seconds} seconds")
+                    time.sleep(0.35)
+                trace_offset = _emit_trace_updates(trace_path, trace_offset, progress_callback)
+            except BaseException:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+            stdout_stream.seek(0)
+            stderr_stream.seek(0)
+            stdout = stdout_stream.read()
+            stderr = stderr_stream.read()
+            returncode = process.returncode
+
+        if returncode != 0:
+            tail = "\n".join(stderr.splitlines()[-12:])
+            raise RuntimeError(f"Shielded AWM run failed ({returncode}): {tail}")
+        for line in reversed(stdout.splitlines()):
             try:
                 payload = json.loads(line)
             except json.JSONDecodeError:
@@ -210,3 +255,29 @@ class AWMWebArenaRunner:
             if isinstance(payload, dict) and payload.get("type") == "agentshield_run_result":
                 return payload
         raise RuntimeError("Shielded AWM run completed without a machine-readable result")
+
+
+def _emit_trace_updates(
+    trace_path: Path,
+    offset: int,
+    callback: Callable[[str, Mapping[str, object]], None] | None,
+) -> int:
+    """Emit complete ShieldAgent JSONL records written since the last poll."""
+    if not trace_path.is_file():
+        return offset
+    try:
+        with trace_path.open("r", encoding="utf-8") as stream:
+            stream.seek(offset)
+            lines = stream.readlines()
+            next_offset = stream.tell()
+    except OSError:
+        return offset
+    if callback is not None:
+        for line in lines:
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(item, dict):
+                callback("paper_action_verified", item)
+    return next_offset

@@ -12,6 +12,7 @@ from agentshield.integrations.awm_runner import (
 from agentshield.integrations.awm_webarena import (
     AWMWebArenaConfig,
     AWMWebArenaRunner,
+    _emit_trace_updates,
     inspect_awm_webarena,
 )
 from agentshield.integrations.upstreams import inspect_upstreams
@@ -62,11 +63,25 @@ def test_awm_command_uses_isolated_python_without_prompt_or_key(tmp_path):
         start_url="http://shopping.local",
     )
 
-    command = runner.build_command(config, tmp_path)
+    command = runner.build_command(config, tmp_path, trajectory_id="awm-test-run")
 
     assert command[0] == "awm-python"
+    assert command[command.index("--trajectory-id") + 1] == "awm-test-run"
     assert config.task_prompt not in command
     assert not any("secret" in item.lower() or "api_key" in item.lower() for item in command)
+
+
+def test_awm_trace_updates_are_emitted_once(tmp_path):
+    trace = tmp_path / "audit" / "awm-webarena-openended.shield.jsonl"
+    trace.parent.mkdir()
+    trace.write_text(json.dumps({"decision": "ALLOW", "allowed": True}) + "\n", encoding="utf-8")
+    updates = []
+
+    offset = _emit_trace_updates(trace, 0, lambda event, payload: updates.append((event, payload)))
+    unchanged = _emit_trace_updates(trace, offset, lambda event, payload: updates.append((event, payload)))
+
+    assert unchanged == offset
+    assert updates == [("paper_action_verified", {"decision": "ALLOW", "allowed": True})]
 
 
 def test_unknown_openai_compatible_model_uses_tokenizer_fallback():

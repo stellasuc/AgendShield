@@ -452,18 +452,23 @@ def _paper_pairs(result: dict[str, object]) -> list[dict[str, str]]:
             item = json.loads(line)
         except json.JSONDecodeError:
             continue
-        decision = str(item.get("decision", "BLOCK"))
-        names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
-        state = "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
-        pairs.append({
-            "agent_title": f"AWM 提议：{names}",
-            "agent_detail": f"动作指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
-            "shield_title": f"ShieldAgent：{decision}",
-            "shield_detail": str(item.get("explanation") or "已完成规则电路核验"),
-            "state": state,
-            "return_label": "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划",
-        })
+        if isinstance(item, dict):
+            pairs.append(_paper_pair(item))
     return pairs
+
+
+def _paper_pair(item: dict[str, object]) -> dict[str, str]:
+    decision = str(item.get("decision", "BLOCK"))
+    names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
+    state = "ALLOW" if item.get("allowed") else ("REPAIR" if decision == "REPLAN" else "BLOCK")
+    return {
+        "agent_title": f"AWM 提议：{names}",
+        "agent_detail": f"动作指纹 {str(item.get('action_sha256', ''))[:16]}…；原始载荷不写入审计",
+        "shield_title": f"ShieldAgent：{decision}",
+        "shield_detail": str(item.get("explanation") or "已完成规则电路核验"),
+        "state": state,
+        "return_label": "允许进入 WebArena" if item.get("allowed") else "反馈 AWM 重新规划",
+    }
 
 
 def _result_copy(scenario: str, session: DemoSession) -> tuple[str, str, bool]:
@@ -646,7 +651,27 @@ class _LiveExecutionFlow:
         time.sleep(0.08)
 
     def on_progress(self, event: str, payload) -> None:
-        if event == "planning_started":
+        if event == "paper_started":
+            self.pairs = [{
+                "agent_title": "AWM 正在读取页面并生成第一个动作",
+                "agent_detail": "首次模型调用通常需要等待数十秒；动作生成后会立即显示在这里",
+                "shield_title": "ShieldAgent 已加载，正在等待动作",
+                "shield_detail": "收到动作后将在进入 WebArena 前执行法规规则核验",
+                "state": "PENDING",
+                "return_label": "等待动作",
+            }]
+        elif event == "paper_action_verified":
+            if self.pairs and self.pairs[0]["agent_title"].startswith("AWM 正在读取页面"):
+                self.pairs = []
+            self.pairs.append(_paper_pair(dict(payload)))
+        elif event == "paper_failed" and self.pairs:
+            self.pairs[-1].update({
+                "shield_title": "本次执行未能继续",
+                "shield_detail": str(payload.get("error") or "运行环境返回异常"),
+                "state": "BLOCK",
+                "return_label": "执行停止",
+            })
+        elif event == "planning_started":
             self.pairs = [{
                 "agent_title": "理解任务并生成行动计划",
                 "agent_detail": "在线模型正在把 Prompt 转换为固定范围的 Web 动作…",
@@ -818,12 +843,14 @@ if run:
     st.markdown("## 安全执行过程")
     st.caption(f"任务 Prompt：{prompt}")
     if execution_backend == "paper":
+        live_flow = _LiveExecutionFlow()
         try:
             environment, workflow, start_url = paper_target
             status = st.status("正在启动 AWM + WebArena 安全执行…", expanded=True)
             status.write("1/4 已加载固定版本 AWM 与 WebArena")
             status.write("2/4 已把用户 Prompt 注入 BrowserGym goal")
             status.write("3/4 ShieldAgent 已位于 AWM get_action 与 WebArena env.step 之间")
+            live_flow.on_progress("paper_started", {"regulations": regulations})
             model_name = model_config.model
             if not model_name.startswith("openai/"):
                 model_name = f"openai/{model_name}"
@@ -844,16 +871,20 @@ if run:
                 ),
                 Path(".agentshield/webarena-ui"),
                 environment=process_environment,
+                progress_callback=live_flow.on_progress,
             )
             status.write("4/4 WebArena 执行结束，已保存 BrowserGym 轨迹与 ShieldAgent 审计")
             status.update(label="安全执行已完成", state="complete", expanded=False)
             st.session_state["upstream_result"] = dict(result)
             st.session_state["run_signature"] = signature
             pairs = _paper_pairs(dict(result))
-            st.markdown(_process_board_html(pairs, complete=True), unsafe_allow_html=True)
+            live_flow.pairs = pairs
+            live_flow._draw(complete=True)
             ran_now = True
         except Exception as exc:
             run_failed = True
+            status.update(label="安全执行未完成", state="error", expanded=False)
+            live_flow.on_progress("paper_failed", {"error": str(exc)[:500]})
             st.error(f"AWM / WebArena 安全执行未完成：{type(exc).__name__}: {exc}")
     else:
         live_flow = _LiveExecutionFlow()

@@ -98,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-steps", type=int, default=10)
     parser.add_argument("--max-replans", type=int, default=2)
     parser.add_argument("--output-root", required=True)
+    parser.add_argument("--trajectory-id", default="")
     parser.add_argument("--headless", type=_bool, default=True)
     parser.add_argument("--start-url", default="")
     return parser
@@ -132,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     workflow = awm_web / "workflow" / f"{args.workflow}.txt"
 
     task_id = args.task_name.removeprefix("webarena.")
-    trajectory_id = f"awm-webarena-{task_id}"
+    trajectory_id = args.trajectory_id.strip() or f"awm-webarena-{task_id}"
     delegate_args = GenericAgentArgs(
         chat_model_args=ChatModelArgs(
             model_name=args.model_name,
