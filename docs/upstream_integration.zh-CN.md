@@ -42,9 +42,9 @@
 
 ## AWM 适配
 
-`ShieldedBrowserAgent` 使用组合而非 fork：它持有原 AWM Agent，并转发 `obs_preprocessor` 和 `action_set`。在首次 `get_action` 前，ShieldAgent 会完成 `PLAN_PREFLIGHT`，把法规、数据最小化、站点范围、能力白名单和副作用边界作为可信约束注入 AWM 的 Goal/Chat 规划上下文。每次 `get_action` 返回的下一步动作都被标记为 `PLAN_STEP_DECISION`，先进入 `BrowserGymActionGuard`，通过后才成为可交给环境的动作。
+`ShieldedBrowserAgent` 使用组合而非 fork：它持有原 AWM Agent，并转发 `obs_preprocessor` 和 `action_set`，不修改 AWM 的 Goal、Chat 或 workflow prompt。每次 `get_action` 返回的下一步动作都被标记为 `PLAN_STEP_DECISION`，先进入 `BrowserGymActionGuard`，通过后才成为可交给环境的动作。
 
-这里没有删除执行门：规划约束降低生成危险动作的概率，确定性动作门负责防止模型偏离计划、页面状态变化或参数在运行时被替换。两层记录都只保存指纹、规则和分类证据，不保存 Prompt 或动作原文。
+AWM 的原始输入保持不变，因此不会增加法规规则带来的模型上下文 token 开销；确定性动作门负责防止模型偏离计划、页面状态变化或参数在运行时被替换。审计只保存指纹、规则和分类证据，不保存 Prompt 或动作原文。
 
 Guard 使用 Python AST 解析高层动作，不执行动作文本。随后根据动作和观察将提案规范化为生命周期事件：
 

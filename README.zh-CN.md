@@ -104,15 +104,14 @@ agentshield autopolicy review-template \
 
 `ShieldedBrowserAgent` 组合原始 AWM Agent，不修改 AWM 源码：
 
-1. ShieldAgent 先生成法规、数据最小化、站点范围和能力边界约束，并注入 AWM 的 Goal/Chat 规划上下文；
-2. AWM 的 `get_action(observation)` 在约束下产生下一项 BrowserGym 候选计划步骤；
-3. AgentShield 解析候选步骤的动作名称、目标、页面证据、任务目的和可能的数据载荷；
-4. ShieldAgent 检索相关动作规则电路并为原子谓词赋值；
-5. 确定性校验返回 `ALLOW / REPLAN / BLOCK / REQUIRE_APPROVAL / REQUIRE_CONSENT / REPAIR`；
-6. `ALLOW` 才让该计划步骤成为实际动作并交给 WebArena；不安全步骤永远不会到达 `env.step()`；
-7. `REPLAN` 作为 `last_action_error` 反馈给原 AWM，最多重新规划指定次数；
-8. 需要用户亲自处理时生成有范围和时效的 `PENDING_USER` 检查点，验证用户完成凭证后以独立轨迹续跑；
-9. 仍不安全时返回 BrowserGym 安全终止消息，并写入载荷最小化审计。
+1. 原始 AWM 的 `get_action(observation)` 使用未修改的 Goal/Chat 上下文产生下一项 BrowserGym 候选计划步骤；
+2. AgentShield 解析候选步骤的动作名称、目标、页面证据、任务目的和可能的数据载荷；
+3. ShieldAgent 检索相关动作规则电路并为原子谓词赋值；
+4. 确定性校验返回 `ALLOW / REPLAN / BLOCK / REQUIRE_APPROVAL / REQUIRE_CONSENT / REPAIR`；
+5. `ALLOW` 才让该计划步骤成为实际动作并交给 WebArena；不安全步骤永远不会到达 `env.step()`；
+6. `REPLAN` 作为 `last_action_error` 反馈给原 AWM，最多重新规划指定次数；
+7. 需要用户亲自处理时生成有范围和时效的 `PENDING_USER` 检查点，验证用户完成凭证后以独立轨迹续跑；
+8. 仍不安全时返回 BrowserGym 安全终止消息，并写入载荷最小化审计。
 
 这比论文开放仓库中只读取轨迹最后一步的事后脚本更适合真实运行时：检查点明确位于 Agent 输出与环境副作用之间。
 
@@ -190,7 +189,7 @@ agentshield demo idempotency
 agentshield dashboard
 ```
 
-上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **152 passed**，其中测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、规划约束注入、候选步骤核验、AWM 反馈重规划、含个人数据的 BrowserGym 动作在环境执行前被阻止，以及用户接管检查点的范围、时效、单次使用和载荷最小化。
+上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **151 passed**，其中测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、原始 AWM 输入保持不变、候选步骤核验、AWM 反馈重规划、含个人数据的 BrowserGym 动作在环境执行前被阻止，以及用户接管检查点的范围、时效、单次使用和载荷最小化。
 
 ## 支持的审核后规则包
 

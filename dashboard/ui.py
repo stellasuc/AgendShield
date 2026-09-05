@@ -362,10 +362,10 @@ def _render_stack_selector() -> tuple[str, dict[str, str]]:
     st.markdown(
         "<section class='visualization-intro'><div class='agent-tag'>这个工作台展示什么</div>"
         "<h3>把一次网页 Agent 的安全执行过程变得看得见。</h3>"
-        "<p>输入任务、选择需要遵守的法规后，ShieldAgent 会先把审核后规则转成规划约束，再逐步展示任务 Agent 的候选步骤，"
+        "<p>输入任务、选择需要遵守的法规后，系统会逐步展示任务 Agent 生成的候选计划步骤，"
         "以及这些步骤如何在成为实际网页动作前被放行、要求修复或阻止。</p>"
         "<div class='visualization-flow'>"
-        "<div class='visualization-node'><strong>1. Plan 注入安全边界</strong><span>把法规规则、数据范围与能力限制交给任务 Agent</span></div>"
+        "<div class='visualization-node'><strong>1. 任务 Agent 生成计划步骤</strong><span>例如搜索商品、读取页面或加入购物车</span></div>"
         "<div class='visualization-arrow'>→</div>"
         "<div class='visualization-node shield'><strong>2. 核验候选计划步骤</strong><span>结合当前页面证据进行确定性规则检查</span></div>"
         "<div class='visualization-arrow'>→</div>"
@@ -494,21 +494,6 @@ def _paper_handoff(result: dict[str, object]) -> dict[str, object] | None:
 
 
 def _paper_pair(item: dict[str, object]) -> dict[str, str]:
-    if item.get("record_type") == "PLAN_PREFLIGHT":
-        constraints = item.get("constraints") or ()
-        rule_ids = item.get("candidate_rule_ids") or ()
-        categories = item.get("detected_categories") or ()
-        detail = f"由 {len(rule_ids)} 条审核后规则编译出 {len(constraints)} 项规划约束，适用法规：{'、'.join(item.get('regulations') or ())}"
-        if categories:
-            detail += f"；任务中识别到 {len(categories)} 类个人信息信号，已要求规划时避免传播"
-        return {
-            "agent_title": "准备生成任务计划",
-            "agent_detail": "AWM 尚未产生网页动作，先接收可信的安全规划边界",
-            "shield_title": "在 Plan 阶段注入安全约束",
-            "shield_detail": detail,
-            "state": "ALLOW" if item.get("allowed") else "BLOCK",
-            "return_label": "开始受约束规划" if item.get("allowed") else "禁止规划",
-        }
     decision = str(item.get("decision", "BLOCK"))
     names = ", ".join(item.get("action_names") or ()) or "无法解析的动作"
     handoff = item.get("user_handoff") if isinstance(item.get("user_handoff"), dict) else None
@@ -709,15 +694,15 @@ class _LiveExecutionFlow:
     def on_progress(self, event: str, payload) -> None:
         if event == "paper_started":
             self.pairs = [{
-                "agent_title": "AWM 正在准备生成任务计划",
+                "agent_title": "AWM 正在生成第一个计划步骤",
                 "agent_detail": "首次模型调用通常需要等待数十秒；候选计划步骤生成后会立即显示",
-                "shield_title": "ShieldAgent 正在准备规划约束",
-                "shield_detail": "先把所选法规、数据边界与可用能力注入 Plan，再核验每个候选步骤",
+                "shield_title": "ShieldAgent 已加载规则核验器",
+                "shield_detail": "AWM 保持原始 Goal/Chat；收到候选步骤后才进行独立确定性核验",
                 "state": "PENDING",
                 "return_label": "等待动作",
             }]
         elif event == "paper_action_verified":
-            if self.pairs and self.pairs[0]["agent_title"].startswith("AWM 正在准备"):
+            if self.pairs and self.pairs[0]["agent_title"].startswith("AWM 正在生成"):
                 self.pairs = []
             self.pairs.append(_paper_pair(dict(payload)))
         elif event == "paper_failed" and self.pairs:
@@ -848,7 +833,7 @@ def _render_result(scenario: str, session: DemoSession) -> None:
             st.warning(session.result["scope_guard"])
 
 
-st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。ShieldAgent 先约束任务 Agent 的规划，再核验每个候选步骤；页面会清楚展示该步骤是被批准执行、要求调整，还是被阻止。</p><div class="hero-badge">从 Plan 到执行，每一步都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
+st.markdown("""<section class="hero"><div class="eyebrow">AGENTSHIELD · 安全执行可视化</div><h1>看见 Agent 如何安全地完成网页任务。</h1><p>输入任务并选择要遵守的法规。AWM 保持原始规划输入；ShieldAgent 独立核验每个候选步骤，页面会清楚展示该步骤是被批准执行、要求调整，还是被阻止。</p><div class="hero-badge">从候选 Plan 到执行，每一步都有可解释的安全决定</div></section>""", unsafe_allow_html=True)
 
 regulations, prompt, model_config, execution_backend, webarena_urls = _render_setup()
 handoff_resume = st.session_state.get("paper_handoff_resume")
@@ -919,7 +904,7 @@ if run:
             environment, workflow, start_url = paper_target
             status = st.status("正在启动 AWM + WebArena 安全执行…", expanded=True)
             status.write("1/4 已加载固定版本 AWM 与 WebArena")
-            status.write("2/4 已把用户 Prompt 与法规约束注入 AWM Plan")
+            status.write("2/4 已将用户 Prompt 原样交给 AWM 生成 Plan")
             status.write("3/4 ShieldAgent 将核验每个候选计划步骤，通过后才交给 WebArena")
             live_flow.on_progress("paper_started", {"regulations": regulations})
             model_name = model_config.model
@@ -1050,7 +1035,7 @@ elif not run_failed:
     st.markdown("---")
     st.markdown("### 安全执行会做什么？")
     one, two, three = st.columns(3)
-    for column, title, text in ((one, "1 · Plan 约束", "ShieldAgent 将审核后法规规则编译为 AWM 的可信规划边界。"), (two, "2 · 候选步骤核验", "AWM 的下一步计划通过确定性检查后，才可能成为网页动作。"), (three, "3 · 反馈或执行", "允许则进入 WebArena；不安全则反馈 AWM 重新规划并保留审计。")):
+    for column, title, text in ((one, "1 · AWM 生成候选步骤", "开源任务 Agent 使用原始 Prompt 和 WebArena 观察生成 BrowserGym 动作。"), (two, "2 · ShieldAgent 核验", "候选步骤通过确定性检查后，才可能成为网页动作。"), (three, "3 · 反馈或执行", "允许则进入 WebArena；不安全则反馈 AWM 重新规划并保留审计。")):
         column.markdown(f"<div class='agent-card'><div class='agent-tag'>{title}</div><p>{text}</p></div>", unsafe_allow_html=True)
 
 st.markdown("---")
