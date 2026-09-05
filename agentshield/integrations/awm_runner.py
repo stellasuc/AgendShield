@@ -39,6 +39,45 @@ class ShieldedAWMArgs(_AbstractAgentArgs):
         return ShieldedBrowserAgent(delegate, guard, max_replans=self.max_replans)
 
 
+def _install_openai_tokenizer_fallback(llm_utils: Any, model_name: str) -> bool:
+    """Let AWM estimate tokens for OpenAI-compatible models unknown to tiktoken."""
+    if not model_name.startswith("openai/"):
+        return False
+    try:
+        llm_utils.get_tokenizer(model_name)
+        return False
+    except KeyError:
+        pass
+
+    original_get_tokenizer = llm_utils.get_tokenizer
+    fallback = llm_utils.tiktoken.get_encoding("cl100k_base")
+
+    def compatible_get_tokenizer(requested_model: str = "openai/gpt-4"):
+        try:
+            return original_get_tokenizer(requested_model)
+        except KeyError:
+            if requested_model.startswith("openai/"):
+                return fallback
+            raise
+
+    llm_utils.get_tokenizer = compatible_get_tokenizer
+    return True
+
+
+def _raise_on_browsergym_failure(experiment_directory: str | Path) -> None:
+    """BrowserGym 0.3 records loop failures without returning a non-zero status."""
+    summary_path = Path(experiment_directory) / "summary_info.json"
+    if not summary_path.is_file():
+        raise RuntimeError("BrowserGym 未生成执行摘要")
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("BrowserGym 执行摘要无法读取") from exc
+    error = str(summary.get("err_msg") or "").strip()
+    if error:
+        raise RuntimeError(f"BrowserGym 执行失败：{error}")
+
+
 def _bool(value: str) -> bool:
     normalized = value.strip().lower()
     if normalized in {"1", "true", "yes"}:
@@ -79,10 +118,13 @@ def main(argv: list[str] | None = None) -> int:
         from agents.legacy.agent import GenericAgentArgs
         from agents.legacy.dynamic_prompting import Flags
         from agents.legacy.utils.chat_api import ChatModelArgs
+        from agents.legacy.utils import llm_utils
     except ImportError as exc:
         raise SystemExit(
             "AWM/BrowserGym dependencies are missing; install third_party/agent-workflow-memory/webarena/requirements.txt"
         ) from exc
+
+    _install_openai_tokenizer_fallback(llm_utils, args.model_name)
 
     output = Path(args.output_root).resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -146,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     experiment.prepare(output)
     experiment.run()
+    _raise_on_browsergym_failure(experiment.exp_dir)
     print(json.dumps({
         "type": "agentshield_run_result",
         "task_name": args.task_name,

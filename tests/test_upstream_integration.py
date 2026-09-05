@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from agentshield.cli import main
+from agentshield.integrations.awm_runner import (
+    _install_openai_tokenizer_fallback,
+    _raise_on_browsergym_failure,
+)
 from agentshield.integrations.awm_webarena import (
     AWMWebArenaConfig,
     AWMWebArenaRunner,
@@ -59,3 +67,45 @@ def test_awm_command_uses_isolated_python_without_prompt_or_key(tmp_path):
     assert command[0] == "awm-python"
     assert config.task_prompt not in command
     assert not any("secret" in item.lower() or "api_key" in item.lower() for item in command)
+
+
+def test_unknown_openai_compatible_model_uses_tokenizer_fallback():
+    fallback = object()
+
+    class FakeTiktoken:
+        @staticmethod
+        def get_encoding(name):
+            assert name == "cl100k_base"
+            return fallback
+
+    class FakeLLMUtils:
+        tiktoken = FakeTiktoken()
+
+        @staticmethod
+        def get_tokenizer(model_name="openai/gpt-4"):
+            if model_name == "openai/MiniMax-M2.7":
+                raise KeyError(model_name)
+            return "known-tokenizer"
+
+    assert _install_openai_tokenizer_fallback(FakeLLMUtils, "openai/MiniMax-M2.7") is True
+    assert FakeLLMUtils.get_tokenizer("openai/MiniMax-M2.7") is fallback
+    assert FakeLLMUtils.get_tokenizer("openai/gpt-4") == "known-tokenizer"
+
+
+def test_browsergym_recorded_failure_is_not_reported_as_success(tmp_path):
+    (tmp_path / "summary_info.json").write_text(
+        json.dumps({"n_steps": 0, "err_msg": "tokenizer mapping failed"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="tokenizer mapping failed"):
+        _raise_on_browsergym_failure(tmp_path)
+
+
+def test_browsergym_clean_summary_is_accepted(tmp_path):
+    (tmp_path / "summary_info.json").write_text(
+        json.dumps({"n_steps": 2, "err_msg": None}),
+        encoding="utf-8",
+    )
+
+    _raise_on_browsergym_failure(tmp_path)
