@@ -189,7 +189,7 @@ agentshield demo idempotency
 agentshield dashboard
 ```
 
-上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **151 passed**，其中测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、原始 AWM 输入保持不变、候选步骤核验、AWM 反馈重规划、含个人数据的 BrowserGym 动作在环境执行前被阻止，以及用户接管检查点的范围、时效、单次使用和载荷最小化。
+上述 demo 使用合成数据和本地测试后端，仅用于验证 ShieldAgent/Broker，不代表 AWM/WebArena 实验。当前自动化结果为 **352 passed**，其中包含 200 条 ShieldAgent-Bench 对齐的可执行回归用例：40 条正常放行、160 条个人信息/敏感信息外发或未注册工具调用的拦截用例，以及用例分布校验。其余测试覆盖：上游 commit 锁定、AutoPolicy 来源关联、policy-rule mapping 一致性、损坏 artifact 拒绝、Key 不进入 argv、原始 AWM 输入保持不变、候选步骤核验、AWM 反馈重规划和用户接管检查点的范围、时效、单次使用与载荷最小化。
 
 ## 支持的审核后规则包
 
@@ -203,6 +203,7 @@ agentshield dashboard
 - [开源组件与集成说明](docs/upstream_integration.zh-CN.md)
 - [架构与执行流](docs/architecture.zh-CN.md)
 - [SHIELDAGENT 技术分析](docs/shieldagent_analysis.zh-CN.md)
+- [ShieldAgent 200 条可执行测试用例](docs/shieldagent_bench_200.zh-CN.md)
 - [Capability Broker](docs/capability_broker.zh-CN.md)
 - [威胁模型](docs/threat_model.zh-CN.md)
 - [安全评估](docs/security_evaluation.zh-CN.md)
