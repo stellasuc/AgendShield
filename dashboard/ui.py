@@ -56,6 +56,13 @@ WEB_TARGETS = {
     "maps": ("MAP", "map"),
 }
 
+# The recommended deployment keeps the protected WebArena Shopping container on
+# the same host as AgentShield. Administrators can override every address with
+# an environment variable or in the current Streamlit session.
+DEFAULT_WEBARENA_URLS = {
+    "SHOPPING": "http://127.0.0.1:7770",
+}
+
 
 st.set_page_config(
     page_title="AgentShield · 安全执行工作台",
@@ -362,7 +369,7 @@ def _render_stack_selector() -> tuple[str, dict[str, str]]:
         )
         if mode == "paper":
             st.markdown("#### 连接已部署的演示网站")
-            st.caption("地址仅保存在当前浏览器会话，不会写入 Git 或审计日志。未部署的网站可以留空；当任务需要该网站时，页面会提示填写。")
+            st.caption("Shopping 已按同机部署方式提供默认地址。其他地址可以通过服务器环境变量预设，也可以仅在当前浏览器会话中填写。")
             labels = {
                 "SHOPPING": "购物网站",
                 "SHOPPING_ADMIN": "内容管理网站",
@@ -373,7 +380,7 @@ def _render_stack_selector() -> tuple[str, dict[str, str]]:
             urls = {
                 variable: st.text_input(
                     f"{labels[variable]}（{variable}）",
-                    value=os.environ.get(variable, ""),
+                    value=os.environ.get(variable, DEFAULT_WEBARENA_URLS.get(variable, "")),
                     placeholder="http://已部署的网站地址",
                     key=f"webarena_url_{variable.lower()}",
                 ).strip()
