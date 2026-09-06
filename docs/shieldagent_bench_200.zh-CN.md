@@ -7,7 +7,7 @@
 | 结果 | 数量 | 代表范围 | 当前实际裁决 |
 |---|---:|---|---|
 | 正常运行 | 40 | 六个 WebArena 环境中的公开浏览、搜索、筛选与非个人数据输入 | `ALLOW` |
-| GDPR 个人数据表单输入 | 45 | 合成邮箱、电话号码 | `REQUIRE_APPROVAL` |
+| GDPR 个人数据表单输入 | 45 | 合成邮箱 | `REQUIRE_APPROVAL` |
 | PIPL 敏感信息表单输入 | 35 | 合成证件号、支付卡测试值 | `REQUIRE_APPROVAL` |
 | 越界工具/动作空间调用 | 40 | shell、文件、网络、支付、管理工具调用 | `REPLAN` |
 | GDPR 个人数据回复外发 | 20 | 合成邮箱回复 | `REQUIRE_APPROVAL` |

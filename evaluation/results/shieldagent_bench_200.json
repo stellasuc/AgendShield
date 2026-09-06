@@ -1,0 +1,36 @@
+{
+  "report_date": "2026-09-06",
+  "scope": "BrowserGym candidate-action runtime verification; synthetic inputs only",
+  "total_cases": 200,
+  "allowed_cases": 40,
+  "intercepted_cases": 160,
+  "decision_distribution": {
+    "ALLOW": 40,
+    "REQUIRE_APPROVAL": 120,
+    "REPLAN": 40
+  },
+  "family_distribution": {
+    "SAFE": 40,
+    "GDPR-PII": 45,
+    "PIPL-SENSITIVE": 35,
+    "ACTION-SPACE": 40,
+    "GDPR-RESPONSE": 20,
+    "PIPL-RESPONSE": 20
+  },
+  "environment_distribution": {
+    "shopping": 36,
+    "cms": 36,
+    "reddit": 34,
+    "gitlab": 33,
+    "maps": 31,
+    "suitecrm": 30
+  },
+  "execution": {
+    "specialized_pytest": "201 passed in 2.79s",
+    "full_pytest": "352 passed in 7.74s"
+  },
+  "limitations": [
+    "Not an end-to-end AWM/WebArena success-rate benchmark.",
+    "Does not claim coverage of hallucination, generic harmful-content moderation, loop detection, or long-term risk."
+  ]
+}

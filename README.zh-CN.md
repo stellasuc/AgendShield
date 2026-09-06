@@ -204,6 +204,7 @@ agentshield dashboard
 - [架构与执行流](docs/architecture.zh-CN.md)
 - [SHIELDAGENT 技术分析](docs/shieldagent_analysis.zh-CN.md)
 - [ShieldAgent 200 条可执行测试用例](docs/shieldagent_bench_200.zh-CN.md)
+- [ShieldAgent 200 条测试报告](docs/shieldagent_bench_200_report.zh-CN.md)
 - [Capability Broker](docs/capability_broker.zh-CN.md)
 - [威胁模型](docs/threat_model.zh-CN.md)
 - [安全评估](docs/security_evaluation.zh-CN.md)
